@@ -295,6 +295,8 @@
   <div class="nav-group">
     <div class="nav-label">Tools</div>
     <div class="nav-item" data-tab="query">Ask a Question</div>
+    <div class="nav-item" data-tab="invite">Build Invite List</div>
+    <div class="nav-item" data-tab="contactsUpload">Upload / Update Contacts</div>
     <div class="nav-item" data-tab="upload">Upload Attendance</div>
   </div>
 </div>
@@ -361,8 +363,67 @@
         <span class="suggestion-chip" data-q="Who is inactive?">Inactive contacts</span>
         <span class="suggestion-chip" data-q="Show tier 1 contacts">Tier 1 contacts</span>
         <span class="suggestion-chip" data-q="Directors in the Fashion & Leather Goods division">Directors, F&LG</span>
+        <span class="suggestion-chip" data-q="Who attended the most events?">Most active</span>
       </div>
       <div id="chatResults"></div>
+
+      <div class="section-label" style="margin-top:32px;">Quick Edit — single field, requires confirmation</div>
+      <p style="color:var(--slate); font-size:12px; margin-bottom:10px;">
+        Format: <em>update [Contact ID or email] [field] to [new value]</em>. Editable fields: title, status, tier, market, seniority, division, brand, first name, last name, email, function.
+      </p>
+      <div class="chat-input-row">
+        <input type="text" id="editCmdInput" placeholder="e.g. update ADP-002 title to Senior Manager, Media &amp; Digital">
+        <button class="btn secondary" id="editCmdBtn">Preview Change</button>
+      </div>
+      <div id="editCmdPreview"></div>
+    </div>
+  </div>
+
+  <!-- INVITE LIST BUILDER -->
+  <div class="tab-panel hidden" id="tab-invite">
+    <div class="panel" style="max-width:760px;">
+      <div class="section-label">Build an invite list</div>
+      <div class="filters-row">
+        <select id="invDivision"><option value="">All Divisions</option></select>
+        <select id="invBrand"><option value="">All Brands</option></select>
+        <select id="invMarket"><option value="">All Markets</option></select>
+        <select id="invTier"><option value="">All Tiers</option></select>
+        <select id="invSeniority"><option value="">All Seniority</option></select>
+        <select id="invStatus">
+          <option value="Active">Active only</option>
+          <option value="">Active + Inactive</option>
+        </select>
+      </div>
+      <div class="filters-row">
+        <label style="font-size:12.5px; color:var(--slate); display:flex; align-items:center; gap:8px;">
+          Exclude contacts who already attended:
+          <select id="invExcludeEvent"><option value="">— none —</option></select>
+        </label>
+      </div>
+      <div id="inviteCount" style="margin:14px 0; font-size:13px; color:var(--navy); font-weight:600;"></div>
+      <div style="display:flex; gap:8px; margin-bottom:14px;">
+        <button class="btn small" id="inviteDownloadBtn">Download as Excel</button>
+        <button class="btn secondary small" id="inviteCopyBtn">Copy Emails to Clipboard</button>
+      </div>
+      <div id="invitePreview"></div>
+    </div>
+  </div>
+
+  <!-- UPLOAD / UPDATE CONTACTS -->
+  <div class="tab-panel hidden" id="tab-contactsUpload">
+    <div class="panel" style="max-width:640px;">
+      <div class="section-label">Upload / update contacts (.xlsx / .csv)</div>
+      <p style="color:var(--slate); font-size:12.5px; margin-bottom:16px;">
+        Expected columns: Division of Business, Brand, Contact ID, First Name, Last Name, Function, Title, Email Address, Market, Tiers, Seniority Level Tier, Active/Inactive.
+        <br><br>
+        Matching is by <strong>Contact ID</strong> — an existing ID updates that contact's record in place; a new ID adds a new contact. Rows with no Contact ID are skipped and reported.
+      </p>
+      <label class="upload-zone" id="contactsUploadZone">
+        <div style="font-size:10px; letter-spacing:1.5px; text-transform:uppercase; font-weight:700; color:var(--slate); margin-bottom:8px;">Select File</div>
+        <div>Click to choose a file, or drag one here</div>
+        <input type="file" id="contactsFileInput" accept=".xlsx,.csv">
+      </label>
+      <div id="contactsUploadPreview"></div>
     </div>
   </div>
 
@@ -420,18 +481,20 @@ const BRAND_INFO = [
 ];
 const FUNCTIONS = ["Media & Digital","Communications & Events","Retail Excellence","Client Development","E-commerce","Finance & Control","Human Resources"];
 const TITLES = [
-  {text:"Coordinator, Media & Digital", seniority:"Individual Contributor"},
+  {text:"Coordinator, Media & Digital", seniority:"Coordinator / Specialist"},
   {text:"Social Media & Digital Manager", seniority:"Manager+"},
   {text:"Senior Manager, Client Development", seniority:"Manager+"},
   {text:"Head of Media & Performance", seniority:"Director+"},
   {text:"Retail Operations Director", seniority:"Director+"},
   {text:"Communications Director", seniority:"Director+"},
-  {text:"VP, Global Communications", seniority:"VP+"},
-  {text:"SVP, Retail Excellence", seniority:"VP+"},
+  {text:"VP, Global Communications", seniority:"C-Suite / EVP"},
+  {text:"SVP, Retail Excellence", seniority:"C-Suite / EVP"},
   {text:"E-commerce Manager", seniority:"Manager+"},
   {text:"HR Business Partner", seniority:"Manager+"},
   {text:"Finance Manager", seniority:"Manager+"},
-  {text:"Coordinator, Client Development", seniority:"Individual Contributor"},
+  {text:"Coordinator, Client Development", seniority:"Coordinator / Specialist"},
+  {text:"Media & Digital Specialist", seniority:"Coordinator / Specialist"},
+  {text:"EVP, Global Media", seniority:"C-Suite / EVP"},
 ];
 const MARKETS = ["Global","Americas","EMEA","APAC","France","Italy","North America","LATAM"];
 const FIRST = ["Elena","Kenji","Amara","Théo","Ingrid","Rafael","Noor","Callum","Simone","Diego","Freya","Tomás","Anaïs","Kwame","Isla","Mateo","Selin","Rowan","Bianca","Hugo"];
@@ -515,6 +578,7 @@ document.querySelectorAll(".nav-item").forEach(item=>{
     if(tab==="contacts") renderContacts();
     if(tab==="events") renderEvents();
     if(tab==="dashboard") renderDashboard();
+    if(tab==="invite") { populateInviteFilters(); updateInviteList(); }
   });
 });
 
@@ -539,7 +603,7 @@ function populateFilters(){
   const tierSel = document.getElementById("fTier");
   if(marketSel.options.length<=1){
     MARKETS.forEach(m=>marketSel.innerHTML += `<option value="${m}">${m}</option>`);
-    ["Individual Contributor","Manager+","Director+","VP+"].forEach(s=>senSel.innerHTML += `<option value="${s}">${s}</option>`);
+    ["Coordinator / Specialist","Manager+","Director+","C-Suite / EVP"].forEach(s=>senSel.innerHTML += `<option value="${s}">${s}</option>`);
     [1,2,3,4].forEach(t=>tierSel.innerHTML += `<option value="${t}">Tier ${t}</option>`);
   }
 }
@@ -561,6 +625,7 @@ function cardHTML(c){
         <span class="meta-chip"><span class="status-dot ${c.status==='Active'?'active':'inactive'}"></span>${c.status}</span>
         <span class="meta-chip">${c.market}</span>
         <span class="meta-chip">Tier ${c.tier}</span>
+        <span class="meta-chip">${c.seniority}</span>
       </div>
       <div class="tags-row">${tags || '<span style="color:var(--light-grey); font-size:11px;">No events yet</span>'}</div>
     </div>
@@ -608,6 +673,12 @@ function openContactModal(id){
     <div class="form-row"><label>Market</label>
       <select id="editMarket">${MARKETS.map(m=>`<option ${m===c.market?'selected':''}>${m}</option>`).join('')}</select>
     </div>
+    <div class="form-row"><label>Tier</label>
+      <select id="editTier">${[1,2,3,4].map(t=>`<option value="${t}" ${t===c.tier?'selected':''}>Tier ${t}</option>`).join('')}</select>
+    </div>
+    <div class="form-row"><label>Seniority Level Tier</label>
+      <select id="editSeniority">${["Coordinator / Specialist","Manager+","Director+","C-Suite / EVP"].map(s=>`<option ${s===c.seniority?'selected':''}>${s}</option>`).join('')}</select>
+    </div>
     <div class="form-row"><label>Status</label>
       <select id="editStatus"><option ${c.status==='Active'?'selected':''}>Active</option><option ${c.status==='Inactive'?'selected':''}>Inactive</option></select>
     </div>
@@ -625,6 +696,8 @@ function openContactModal(id){
     c.brand = document.getElementById("editBrand").value;
     c.email = document.getElementById("editEmail").value;
     c.market = document.getElementById("editMarket").value;
+    c.tier = parseInt(document.getElementById("editTier").value, 10);
+    c.seniority = document.getElementById("editSeniority").value;
     c.status = document.getElementById("editStatus").value;
     persist();
     modalOverlay.classList.remove("open");
@@ -635,7 +708,7 @@ function openContactModal(id){
 
 document.getElementById("quickAddBtn").addEventListener("click", ()=>{
   const id = "NEW-" + (200 + contacts.length);
-  const c = {id, division:BRAND_INFO[0].division, brand:BRAND_INFO[0].name, first:"New", last:"Contact", function:FUNCTIONS[0], title:"Coordinator, Media & Digital", email:"NEW.CONTACT@EXAMPLE.COM", market:"Global", tier:4, seniority:"Individual Contributor", status:"Active"};
+  const c = {id, division:BRAND_INFO[0].division, brand:BRAND_INFO[0].name, first:"New", last:"Contact", function:FUNCTIONS[0], title:"Coordinator, Media & Digital", email:"NEW.CONTACT@EXAMPLE.COM", market:"Global", tier:4, seniority:"Coordinator / Specialist", status:"Active"};
   contacts.unshift(c);
   persist();
   openContactModal(id);
@@ -656,34 +729,41 @@ function runQuery(q){
   const ql = q.toLowerCase();
   let results = [...contacts];
   let explain = [];
+  let matchedSomething = false;
 
-  // seniority
-  if(ql.includes("manager")){ results = results.filter(c=>c.seniority==="Manager+"); explain.push("seniority = Manager+"); }
-  if(ql.includes("director")){ results = results.filter(c=>c.seniority==="Director+"); explain.push("seniority = Director+"); }
-  if(ql.includes(" vp") || ql.includes("vice president")){ results = results.filter(c=>c.seniority==="VP+"); explain.push("seniority = VP+"); }
+  // seniority — check most specific tier terms first
+  if(ql.includes("c-suite") || ql.includes("c suite") || ql.includes("evp") || ql.includes("chief") || ql.includes(" svp") || ql.includes(" vp") || ql.includes("vice president") || ql.includes("executive")){
+    results = results.filter(c=>c.seniority==="C-Suite / EVP"); explain.push("seniority = C-Suite / EVP"); matchedSomething = true;
+  } else if(ql.includes("director")){
+    results = results.filter(c=>c.seniority==="Director+"); explain.push("seniority = Director+"); matchedSomething = true;
+  } else if(ql.includes("manager")){
+    results = results.filter(c=>c.seniority==="Manager+"); explain.push("seniority = Manager+"); matchedSomething = true;
+  } else if(ql.includes("coordinator") || ql.includes("specialist")){
+    results = results.filter(c=>c.seniority==="Coordinator / Specialist"); explain.push("seniority = Coordinator / Specialist"); matchedSomething = true;
+  }
 
   // status
-  if(ql.includes("inactive")){ results = results.filter(c=>c.status==="Inactive"); explain.push("status = Inactive"); }
-  if(ql.includes("active") && !ql.includes("inactive")){ results = results.filter(c=>c.status==="Active"); explain.push("status = Active"); }
+  if(ql.includes("inactive")){ results = results.filter(c=>c.status==="Inactive"); explain.push("status = Inactive"); matchedSomething = true; }
+  if(ql.includes("active") && !ql.includes("inactive")){ results = results.filter(c=>c.status==="Active"); explain.push("status = Active"); matchedSomething = true; }
 
   // market
   MARKETS.forEach(m=>{
-    if(ql.includes(m.toLowerCase())){ results = results.filter(c=>c.market===m); explain.push("market = "+m); }
+    if(ql.includes(m.toLowerCase())){ results = results.filter(c=>c.market===m); explain.push("market = "+m); matchedSomething = true; }
   });
 
   // division
   const uniqueDivisions = [...new Set(BRAND_INFO.map(b=>b.division))];
   uniqueDivisions.forEach(d=>{
     if(ql.includes(d.toLowerCase()) || (d.includes("Leather") && ql.includes("f&lg"))){
-      results = results.filter(c=>c.division===d); explain.push("division = "+d);
+      results = results.filter(c=>c.division===d); explain.push("division = "+d); matchedSomething = true;
     }
   });
 
   // tier
   const tierMatch = ql.match(/tier\s*(\d)/);
-  if(tierMatch){ results = results.filter(c=>String(c.tier)===tierMatch[1]); explain.push("tier = "+tierMatch[1]); }
+  if(tierMatch){ results = results.filter(c=>String(c.tier)===tierMatch[1]); explain.push("tier = "+tierMatch[1]); matchedSomething = true; }
 
-  // events mentioned
+  // events mentioned by name
   const matchedEvents = EVENTS.filter(e => ql.includes(e.name.toLowerCase()) || ql.includes(e.name.split(" — ")[0].toLowerCase()));
   if(matchedEvents.length){
     matchedEvents.forEach(ev=>{
@@ -691,17 +771,47 @@ function runQuery(q){
       results = results.filter(c=>attendedIds.includes(c.id));
     });
     explain.push("attended: " + matchedEvents.map(e=>e.name).join(" AND "));
+    matchedSomething = true;
+  }
+
+  // "attended N event(s)" — exact count
+  const countMatch = ql.match(/attended\s+(\d+)\s+events?/);
+  if(countMatch){
+    const n = parseInt(countMatch[1], 10);
+    results = results.filter(c => eventsForContact(c.id).length === n);
+    explain.push("event count = " + n);
+    matchedSomething = true;
+  }
+
+  // "most" / "top N" — rank by event count, descending
+  const topMatch = ql.match(/top\s+(\d+)/);
+  if(ql.includes("most") || topMatch){
+    const n = topMatch ? parseInt(topMatch[1], 10) : 1;
+    const ranked = [...results].sort((a,b) => eventsForContact(b.id).length - eventsForContact(a.id).length);
+    const cutoff = ranked.length ? eventsForContact(ranked[Math.min(n,ranked.length)-1].id).length : 0;
+    results = ranked.filter(c => eventsForContact(c.id).length >= cutoff).slice(0, Math.max(n, ranked.filter(c=>eventsForContact(c.id).length>=cutoff).length));
+    explain.push(topMatch ? ("top " + n + " by events attended") : "most events attended");
+    matchedSomething = true;
+  }
+
+  if(!matchedSomething){
+    return {results: [], explain: [], noMatch: true};
   }
 
   return {results, explain};
 }
 
-function renderChatResults(q, results, explain){
+function renderChatResults(q, results, explain, noMatch){
   const box = document.getElementById("chatResults");
-  if(results.length===0){
-    box.innerHTML = `<div class="chat-response"><div class="chat-response-text">No contacts matched "${q}". Try a suggestion chip below, or rephrase — this demo uses simple keyword matching, not a full language model.</div></div>`;
+  if(noMatch){
+    box.innerHTML = `<div class="chat-response"><div class="chat-response-text">I couldn't match "${q}" to a filter this demo understands. Try a suggestion chip below, or rephrase using terms like manager/director, a market name, a tier number, an event name, or "attended N events" / "most events" — this demo uses simple keyword matching, not a full language model, so open-ended phrasing may not resolve.</div></div>`;
     return;
   }
+  if(results.length===0){
+    box.innerHTML = `<div class="chat-response"><div class="chat-response-text">No contacts matched "${q}".</div></div>`;
+    return;
+  }
+  const showEventCount = /most|top\s+\d+|attended\s+\d+\s+events?/i.test(q);
   const rows = results.map(c=>`
     <tr>
       <td>${c.first} ${c.last}</td>
@@ -709,21 +819,23 @@ function renderChatResults(q, results, explain){
       <td>${c.brand}</td>
       <td>${c.market}</td>
       <td>${c.email}</td>
+      ${showEventCount ? `<td>${eventsForContact(c.id).length}</td>` : ''}
     </tr>`).join("");
   box.innerHTML = `
     <div class="chat-response">
       <div class="chat-response-text">Found <strong>${results.length}</strong> contact${results.length===1?'':'s'} matching: ${explain.length? explain.join(" · ") : "your query"}.</div>
       <table class="result-table">
-        <thead><tr><th>Name</th><th>Title</th><th>Brand</th><th>Market</th><th>Email</th></tr></thead>
+        <thead><tr><th>Name</th><th>Title</th><th>Brand</th><th>Market</th><th>Email</th>${showEventCount ? '<th>Events</th>' : ''}</tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <div style="margin-top:12px;"><button class="btn small" id="downloadResultsBtn">⬇ Download as Excel</button></div>
+      <div style="margin-top:12px;"><button class="btn small" id="downloadResultsBtn">Download as Excel</button></div>
     </div>
   `;
   document.getElementById("downloadResultsBtn").onclick = ()=>{
     const ws = XLSX.utils.json_to_sheet(results.map(c=>({
       "First Name":c.first, "Last Name":c.last, "Title":c.title, "Brand":c.brand,
-      "Market":c.market, "Email Address":c.email, "Tier":c.tier, "Seniority Level Tier":c.seniority, "Status":c.status
+      "Market":c.market, "Email Address":c.email, "Tier":c.tier, "Seniority Level Tier":c.seniority, "Status":c.status,
+      "Events Attended": eventsForContact(c.id).length
     })));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Query Results");
@@ -734,8 +846,8 @@ function renderChatResults(q, results, explain){
 document.getElementById("chatAskBtn").addEventListener("click", ()=>{
   const q = document.getElementById("chatInput").value.trim();
   if(!q) return;
-  const {results, explain} = runQuery(q);
-  renderChatResults(q, results, explain);
+  const {results, explain, noMatch} = runQuery(q);
+  renderChatResults(q, results, explain, noMatch);
 });
 document.getElementById("chatInput").addEventListener("keydown", (e)=>{
   if(e.key==="Enter") document.getElementById("chatAskBtn").click();
@@ -797,6 +909,230 @@ function previewUpload(rows){
       </div>
     </div>`;
   renderDashboard();
+}
+
+/* ---------------- QUICK EDIT (confirm-gated single-field update) ---------------- */
+const EDITABLE_FIELDS = {
+  "title":"title", "status":"status", "tier":"tier", "market":"market",
+  "seniority":"seniority", "division":"division", "brand":"brand",
+  "first name":"first", "last name":"last", "email":"email", "function":"function"
+};
+function findContactByIdOrEmail(token){
+  const t = token.trim().toLowerCase();
+  return contacts.find(c => c.id.toLowerCase()===t || c.email.toLowerCase()===t);
+}
+document.getElementById("editCmdBtn").addEventListener("click", ()=>{
+  const raw = document.getElementById("editCmdInput").value.trim();
+  const box = document.getElementById("editCmdPreview");
+  const m = raw.match(/^update\s+(\S+)\s+(title|status|tier|market|seniority|division|brand|first name|last name|email|function)\s+to\s+(.+)$/i);
+  if(!m){
+    box.innerHTML = `<div class="chat-response"><div class="chat-response-text">Couldn't parse that. Use the exact format: <em>update [Contact ID or email] [field] to [new value]</em>.</div></div>`;
+    return;
+  }
+  const [, token, fieldRaw, newValue] = m;
+  const field = EDITABLE_FIELDS[fieldRaw.toLowerCase()];
+  const contact = findContactByIdOrEmail(token);
+  if(!contact){
+    box.innerHTML = `<div class="chat-response"><div class="chat-response-text">No contact found matching "${token}" (checked Contact ID and email).</div></div>`;
+    return;
+  }
+  const oldValue = contact[field];
+  box.innerHTML = `
+    <div class="chat-response">
+      <div class="chat-response-text">
+        <strong>${contact.first} ${contact.last}</strong> (${contact.id}) — field <strong>${fieldRaw}</strong>:<br>
+        <span style="color:var(--slate);">${oldValue || '(empty)'}</span> → <span style="color:var(--navy); font-weight:700;">${newValue.trim()}</span>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn small" id="applyEditBtn">Apply Change</button>
+        <button class="btn secondary small" id="cancelEditBtn">Cancel</button>
+      </div>
+    </div>`;
+  document.getElementById("applyEditBtn").onclick = ()=>{
+    contact[field] = (field==="tier") ? parseInt(newValue.trim(),10) : newValue.trim();
+    persist();
+    box.innerHTML = `<div class="chat-response"><div class="chat-response-text">Updated <strong>${contact.first} ${contact.last}</strong>'s ${fieldRaw} to "${newValue.trim()}".</div></div>`;
+    renderContacts(); renderDashboard();
+  };
+  document.getElementById("cancelEditBtn").onclick = ()=>{ box.innerHTML = ""; };
+});
+
+/* ---------------- INVITE LIST BUILDER ---------------- */
+function populateInviteFilters(){
+  const divSel = document.getElementById("invDivision");
+  const brandSel = document.getElementById("invBrand");
+  const marketSel = document.getElementById("invMarket");
+  const tierSel = document.getElementById("invTier");
+  const senSel = document.getElementById("invSeniority");
+  const evSel = document.getElementById("invExcludeEvent");
+  if(divSel.options.length > 1) return; // already populated
+  const uniqueDivisions = [...new Set(BRAND_INFO.map(b=>b.division))];
+  uniqueDivisions.forEach(d=>divSel.innerHTML += `<option value="${d}">${d}</option>`);
+  BRAND_INFO.forEach(b=>brandSel.innerHTML += `<option value="${b.name}">${b.name}</option>`);
+  MARKETS.forEach(m=>marketSel.innerHTML += `<option value="${m}">${m}</option>`);
+  [1,2,3,4].forEach(t=>tierSel.innerHTML += `<option value="${t}">Tier ${t}</option>`);
+  ["Coordinator / Specialist","Manager+","Director+","C-Suite / EVP"].forEach(s=>senSel.innerHTML += `<option value="${s}">${s}</option>`);
+  EVENTS.forEach(e=>evSel.innerHTML += `<option value="${e.id}">${e.name}</option>`);
+  [divSel,brandSel,marketSel,tierSel,senSel,evSel].forEach(sel=>sel.addEventListener("change", updateInviteList));
+  document.getElementById("invStatus").addEventListener("change", updateInviteList);
+}
+
+function getInviteList(){
+  const div = document.getElementById("invDivision").value;
+  const brand = document.getElementById("invBrand").value;
+  const market = document.getElementById("invMarket").value;
+  const tier = document.getElementById("invTier").value;
+  const sen = document.getElementById("invSeniority").value;
+  const status = document.getElementById("invStatus").value;
+  const excludeEventId = document.getElementById("invExcludeEvent").value;
+
+  let list = contacts.filter(c =>
+    (!div || c.division===div) &&
+    (!brand || c.brand===brand) &&
+    (!market || c.market===market) &&
+    (!tier || String(c.tier)===tier) &&
+    (!sen || c.seniority===sen) &&
+    (!status || c.status===status)
+  );
+  if(excludeEventId){
+    const alreadyIds = attendance.filter(a=>a.eventId===excludeEventId).map(a=>a.contactId);
+    list = list.filter(c => !alreadyIds.includes(c.id));
+  }
+  return list;
+}
+
+function updateInviteList(){
+  const list = getInviteList();
+  document.getElementById("inviteCount").textContent = list.length + " contact" + (list.length===1?"":"s") + " match this invite list";
+  const preview = list.slice(0, 8);
+  const rows = preview.map(c=>`
+    <tr><td>${c.first} ${c.last}</td><td>${c.title}</td><td>${c.brand}</td><td>${c.email}</td></tr>`).join("");
+  document.getElementById("invitePreview").innerHTML = list.length ? `
+    <table class="result-table">
+      <thead><tr><th>Name</th><th>Title</th><th>Brand</th><th>Email</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${list.length > 8 ? `<div style="font-size:11.5px; color:var(--slate); margin-top:8px;">+ ${list.length-8} more — full list included in the download.</div>` : ''}
+  ` : `<div class="empty-state">No contacts match these filters.</div>`;
+}
+
+document.getElementById("inviteDownloadBtn").addEventListener("click", ()=>{
+  const list = getInviteList();
+  const ws = XLSX.utils.json_to_sheet(list.map(c=>({
+    "First Name":c.first, "Last Name":c.last, "Email Address":c.email, "Title":c.title, "Brand":c.brand, "Market":c.market
+  })));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Invite List");
+  XLSX.writeFile(wb, "invite-list.xlsx");
+});
+
+document.getElementById("inviteCopyBtn").addEventListener("click", ()=>{
+  const list = getInviteList();
+  const emails = list.map(c=>c.email).join("; ");
+  const btn = document.getElementById("inviteCopyBtn");
+  const done = (ok)=>{ btn.textContent = ok ? "Copied!" : "Copy failed — select manually"; setTimeout(()=>btn.textContent="Copy Emails to Clipboard", 1800); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(emails).then(()=>done(true)).catch(()=>done(false));
+  } else {
+    const ta = document.createElement("textarea");
+    ta.value = emails; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); done(true); } catch(e){ done(false); }
+    document.body.removeChild(ta);
+  }
+});
+
+/* ---------------- UPLOAD / UPDATE CONTACTS ---------------- */
+const CONTACT_HEADER_MAP = {
+  "division of business":"division",
+  "brand":"brand",
+  "contact id":"id",
+  "first name":"first",
+  "last name":"last",
+  "function":"function",
+  "title":"title",
+  "email address":"email",
+  "market":"market",
+  "tiers":"tier",
+  "tier":"tier",
+  "seniority level tier":"seniority",
+  "active/inactive":"status",
+  "status":"status",
+};
+const contactsUploadZone = document.getElementById("contactsUploadZone");
+const contactsFileInput = document.getElementById("contactsFileInput");
+contactsUploadZone.addEventListener("click", ()=> contactsFileInput.click());
+contactsFileInput.addEventListener("change", handleContactsUpload);
+
+function handleContactsUpload(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt)=>{
+    const data = new Uint8Array(evt.target.result);
+    const wb = XLSX.read(data, {type:"array"});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+    previewContactsUpload(rows);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function previewContactsUpload(rows){
+  let added = 0, updated = 0, skipped = 0;
+  rows.forEach(row=>{
+    const norm = {};
+    Object.keys(row).forEach(key=>{
+      const nk = key.trim().toLowerCase().replace(/\s+/g," ");
+      if(CONTACT_HEADER_MAP[nk]) norm[CONTACT_HEADER_MAP[nk]] = row[key];
+    });
+    const id = norm.id ? String(norm.id).trim() : "";
+    if(!id){ skipped++; return; }
+
+    let statusVal = norm.status ? String(norm.status).trim() : "";
+    if(statusVal) statusVal = /inactive/i.test(statusVal) ? "Inactive" : "Active";
+
+    const existing = contacts.find(c => c.id.toLowerCase() === id.toLowerCase());
+    if(existing){
+      if(norm.division) existing.division = String(norm.division).trim();
+      if(norm.brand) existing.brand = String(norm.brand).trim();
+      if(norm.first) existing.first = String(norm.first).trim();
+      if(norm.last) existing.last = String(norm.last).trim();
+      if(norm.function) existing.function = String(norm.function).trim();
+      if(norm.title) existing.title = String(norm.title).trim();
+      if(norm.email) existing.email = String(norm.email).trim();
+      if(norm.market) existing.market = String(norm.market).trim();
+      if(norm.tier !== undefined && String(norm.tier).trim() !== "") existing.tier = parseInt(norm.tier, 10);
+      if(norm.seniority) existing.seniority = String(norm.seniority).trim();
+      if(statusVal) existing.status = statusVal;
+      updated++;
+    } else {
+      contacts.unshift({
+        id: id,
+        division: norm.division ? String(norm.division).trim() : "",
+        brand: norm.brand ? String(norm.brand).trim() : "",
+        first: norm.first ? String(norm.first).trim() : "",
+        last: norm.last ? String(norm.last).trim() : "",
+        function: norm.function ? String(norm.function).trim() : "",
+        title: norm.title ? String(norm.title).trim() : "",
+        email: norm.email ? String(norm.email).trim() : "",
+        market: norm.market ? String(norm.market).trim() : "",
+        tier: (norm.tier !== undefined && String(norm.tier).trim() !== "") ? parseInt(norm.tier, 10) : 4,
+        seniority: norm.seniority ? String(norm.seniority).trim() : "Coordinator / Specialist",
+        status: statusVal || "Active",
+      });
+      added++;
+    }
+  });
+  persist();
+  document.getElementById("contactsUploadPreview").innerHTML = `
+    <div class="chat-response" style="margin-top:18px;">
+      <div class="chat-response-text">
+        Processed ${rows.length} row(s): <strong>${added}</strong> new contact(s) added,
+        <strong>${updated}</strong> existing contact(s) updated by Contact ID,
+        <strong>${skipped}</strong> row(s) skipped (missing Contact ID).
+      </div>
+    </div>`;
+  renderContacts(); renderDashboard();
 }
 
 /* ---------------- GLOBAL SEARCH ---------------- */
