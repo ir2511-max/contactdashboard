@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LVMH Media Contacts — Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --navy:#020F2A;
+    --dark-blue:#0C2E56;
+    --slate:#586170;
+    --light-grey:#97A4AD;
+    --cream:#F7F2EC;
+    --gold:#ECDAA6;
+    --rust:#984124;
+    --white:#FFFFFF;
+    --radius:4px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Calibri','Segoe UI','Candara',sans-serif;
+    background:var(--cream);
+    color:var(--navy);
+    display:flex;
+    min-height:100vh;
+    font-size:14px;
+  }
+  ::selection{background:var(--gold); color:var(--navy);}
+
+  /* SIDEBAR — dark navy, gold kicker, white text (per "dark slide" style) */
+  .sidebar{
+    width:232px;
+    background:var(--navy);
+    padding:30px 18px;
+    display:flex;
+    flex-direction:column;
+    flex-shrink:0;
+    color:var(--white);
+  }
+  .brand{
+    font-family:'Fraunces',serif;
+    font-size:24px;
+    font-weight:500;
+    color:var(--white);
+    letter-spacing:.2px;
+    margin-bottom:3px;
+  }
+  .brand-sub{
+    font-size:8px;
+    letter-spacing:2px;
+    color:var(--gold);
+    text-transform:uppercase;
+    font-weight:700;
+    margin-bottom:30px;
+  }
+  .nav-group{margin-bottom:22px;}
+  .nav-label{
+    font-size:8px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--light-grey);
+    margin-bottom:9px;
+    padding:0 10px;
+    font-weight:700;
+  }
+  .nav-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:9px 10px;
+    border-radius:6px;
+    cursor:pointer;
+    color:#C9D2DC;
+    font-size:13.5px;
+    margin-bottom:2px;
+    transition:background .15s;
+  }
+  .nav-item:hover{background:var(--dark-blue);}
+  .nav-item.active{background:var(--dark-blue); color:var(--white); font-weight:600; box-shadow:inset 2px 0 0 var(--gold);}
+  .nav-badge{
+    background:rgba(255,255,255,0.1);
+    color:var(--light-grey);
+    font-size:10.5px;
+    padding:1px 7px;
+    border-radius:2px;
+    font-weight:600;
+  }
+  .nav-item.active .nav-badge{background:var(--gold); color:var(--navy);}
+
+  /* MAIN */
+  .main{flex:1; padding:30px 42px 60px; overflow-y:auto; position:relative;}
+  .topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+    gap:20px;
+  }
+  .page-kicker{
+    font-size:8px; letter-spacing:2px; text-transform:uppercase; font-weight:700;
+    color:var(--rust); margin-bottom:4px;
+  }
+  .page-title{font-family:'Fraunces',serif; font-size:28px; font-weight:500; color:var(--navy); line-height:1;}
+  .topbar-right{display:flex; align-items:center; gap:12px;}
+  .search-box{
+    background:var(--white);
+    border:1px solid #E3DED3;
+    border-radius:2px;
+    padding:9px 14px;
+    font-size:13px;
+    width:230px;
+    color:var(--slate);
+  }
+  .badge-local{
+    background:var(--white);
+    color:var(--rust);
+    border:1px solid #E3DED3;
+    padding:7px 12px;
+    border-radius:2px;
+    font-size:11.5px;
+    font-weight:700;
+    letter-spacing:.3px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  hr.divider{border:none; height:1px; background:var(--light-grey); margin-bottom:26px; opacity:.5;}
+
+  /* STATS */
+  .stats-row{display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:32px;}
+  .stat-card{
+    background:var(--cream);
+    border:1px solid #E9E3D6;
+    border-radius:var(--radius);
+    padding:0 0 18px;
+    overflow:hidden;
+    box-shadow:0 3px 8px rgba(2,15,42,0.05);
+  }
+  .stat-card .accent-band{height:6px; width:100%; background:var(--rust);}
+  .stat-card:nth-child(2) .accent-band{background:var(--gold);}
+  .stat-card:nth-child(3) .accent-band{background:var(--dark-blue);}
+  .stat-card:nth-child(4) .accent-band{background:var(--slate);}
+  .stat-card-body{padding:16px 20px 0;}
+  .stat-num{font-family:'Fraunces',serif; font-size:34px; color:var(--navy); font-weight:600;}
+  .stat-label{color:var(--slate); font-size:11.5px; margin-top:2px; text-transform:uppercase; letter-spacing:.6px; font-weight:600;}
+
+  .section-label{
+    font-size:8px; letter-spacing:2px; text-transform:uppercase;
+    color:var(--slate); margin-bottom:12px; font-weight:700;
+  }
+
+  /* CARD */
+  .panel{background:var(--white); border:1px solid #E9E3D6; border-radius:var(--radius); padding:20px; box-shadow:0 3px 10px rgba(2,15,42,0.04);}
+
+  /* CONTACTS GRID */
+  .filters-row{display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap;}
+  select, input[type=text]{
+    background:var(--white);
+    border:1px solid #E3DED3;
+    border-radius:2px;
+    padding:8px 10px;
+    font-size:13px;
+    color:var(--navy);
+    font-family:inherit;
+  }
+  .contacts-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(262px,1fr)); gap:14px;}
+  .contact-card{
+    background:var(--cream);
+    border:1px solid #E9E3D6;
+    border-radius:var(--radius);
+    padding:0 0 16px;
+    cursor:pointer;
+    transition:box-shadow .15s, transform .15s;
+    overflow:hidden;
+  }
+  .contact-card:hover{box-shadow:0 4px 10px rgba(2,15,42,0.08); border-color:var(--light-grey);}
+  .card-accent{height:5px; width:100%; background:var(--dark-blue);}
+  .contact-card-body{padding:14px 16px 0;}
+  .contact-top{display:flex; gap:10px; align-items:center; margin-bottom:10px;}
+  .avatar{
+    width:36px; height:36px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:600; color:var(--navy); font-size:12px; flex-shrink:0;
+    font-family:'Fraunces',serif;
+    background:var(--white);
+    border:1px solid var(--navy);
+    letter-spacing:.5px;
+  }
+  .contact-name{font-weight:700; font-size:14px; color:var(--navy);}
+  .contact-title{color:var(--slate); font-size:11.5px;}
+  .contact-meta{font-size:10.5px; color:var(--slate); margin-bottom:10px; display:flex; gap:6px; flex-wrap:wrap;}
+  .meta-chip{background:var(--white); border:1px solid #E9E3D6; padding:2px 7px; border-radius:4px; font-weight:600;}
+  .tags-row{display:flex; flex-wrap:wrap; gap:5px;}
+  .tag{
+    font-size:10px;
+    background:var(--dark-blue);
+    color:var(--white);
+    padding:3px 8px;
+    border-radius:3px;
+    font-weight:600;
+    letter-spacing:.2px;
+  }
+  .status-dot{width:6px; height:6px; border-radius:50%; display:inline-block; margin-right:5px;}
+  .status-dot.active{background:var(--dark-blue);}
+  .status-dot.inactive{background:var(--rust);}
+
+  /* CHAT QUERY */
+  .chat-wrap{max-width:780px;}
+  .chat-input-row{display:flex; gap:10px; margin-bottom:20px;}
+  .chat-input-row input{flex:1; padding:13px 16px; font-size:14px; border-radius:2px;}
+  .btn{
+    background:var(--navy); color:var(--white); border:none; padding:10px 18px;
+    border-radius:2px; font-weight:700; font-size:12.5px; cursor:pointer;
+    font-family:inherit; transition:background .15s; letter-spacing:.2px;
+  }
+  .btn:hover{background:var(--dark-blue);}
+  .btn.secondary{background:var(--white); color:var(--navy); border:1px solid #E3DED3;}
+  .btn.secondary:hover{background:var(--cream);}
+  .btn.small{padding:7px 13px; font-size:11.5px;}
+  .suggestion-chip{
+    display:inline-block; background:var(--white); border:1px solid #E3DED3; color:var(--slate);
+    padding:5px 11px; border-radius:2px; font-size:11px; margin:3px 6px 3px 0; text-transform:uppercase; letter-spacing:.4px;
+    cursor:pointer;
+  }
+  .suggestion-chip:hover{border-color:var(--rust); color:var(--rust);}
+  .chat-response{
+    background:var(--white); border:1px solid #E9E3D6; border-radius:var(--radius);
+    padding:16px 18px; margin-top:10px; border-top:3px solid var(--gold);
+  }
+  .chat-response-text{font-size:13px; margin-bottom:12px; color:var(--navy);}
+  table.result-table{width:100%; border-collapse:collapse; font-size:12px;}
+  table.result-table th{
+    text-align:left; padding:8px 10px; color:var(--slate);
+    font-weight:700; border-bottom:1px solid #E9E3D6; font-size:9.5px;
+    text-transform:uppercase; letter-spacing:.8px;
+  }
+  table.result-table td{padding:9px 10px; border-bottom:1px solid #F0ECE3; color:var(--navy);}
+
+  /* UPLOAD */
+  .upload-zone{
+    border:2px dashed #D8D1C2; border-radius:var(--radius);
+    padding:40px; text-align:center; color:var(--slate);
+    cursor:pointer; transition:border-color .15s; background:var(--cream);
+  }
+  .upload-zone:hover{border-color:var(--rust);}
+  .upload-zone input{display:none;}
+
+  /* MODAL */
+  .modal-overlay{
+    display:none; position:fixed; inset:0; background:rgba(2,15,42,0.55);
+    align-items:center; justify-content:center; z-index:100;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    background:var(--white); border-radius:2px; padding:26px; width:440px;
+    max-height:80vh; overflow-y:auto; border-top:4px solid var(--navy);
+  }
+  .modal-header{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;}
+  .modal-header h3{font-family:'Fraunces',serif; font-weight:500; font-size:20px; color:var(--navy);}
+  .close-x{cursor:pointer; color:var(--slate); font-size:18px;}
+  .form-row{margin-bottom:12px;}
+  .form-row label{display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--slate); margin-bottom:4px; font-weight:700;}
+  .form-row input, .form-row select{width:100%;}
+
+  .hidden{display:none !important;}
+  .empty-state{text-align:center; padding:50px 20px; color:var(--light-grey);}
+
+  /* FOOTER — recurring furniture per brand guide */
+  .app-footer{
+    margin-top:36px; padding-top:12px;
+    border-top:0.5px solid var(--light-grey);
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:8.5px; color:var(--light-grey); font-style:italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="brand">LVMH</div>
+  <div class="brand-sub">Media Contacts</div>
+
+  <div class="nav-group">
+    <div class="nav-label">Overview</div>
+    <div class="nav-item active" data-tab="dashboard">Dashboard</div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Directory</div>
+    <div class="nav-item" data-tab="contacts">Contacts <span class="nav-badge" id="navContactsCount">20</span></div>
+    <div class="nav-item" data-tab="events">Events <span class="nav-badge" id="navEventsCount">5</span></div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Tools</div>
+    <div class="nav-item" data-tab="query">Ask a Question</div>
+    <div class="nav-item" data-tab="upload">Upload Attendance</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-kicker">LVMH · MEDIA DATA & PERFORMANCE</div>
+      <div class="page-title" id="pageTitle">Dashboard</div>
+    </div>
+    <div class="topbar-right">
+      <input class="search-box" placeholder="Search everything…" id="globalSearch">
+      <div class="badge-local">Local Session — Demo</div>
+      <button class="btn" id="quickAddBtn">Add Contact</button>
+    </div>
+  </div>
+  <hr class="divider">
+
+  <!-- DASHBOARD -->
+  <div class="tab-panel" id="tab-dashboard">
+    <div class="stats-row">
+      <div class="stat-card"><div class="accent-band"></div><div class="stat-card-body"><div class="stat-num" id="statTotal">20</div><div class="stat-label">Total Contacts</div></div></div>
+      <div class="stat-card"><div class="accent-band"></div><div class="stat-card-body"><div class="stat-num" id="statActive">0</div><div class="stat-label">Active Contacts</div></div></div>
+      <div class="stat-card"><div class="accent-band"></div><div class="stat-card-body"><div class="stat-num" id="statEvents">5</div><div class="stat-label">Tracked Events</div></div></div>
+      <div class="stat-card"><div class="accent-band"></div><div class="stat-card-body"><div class="stat-num" id="statAttend">0</div><div class="stat-label">Attendance Records</div></div></div>
+    </div>
+    <div class="section-label">Recently Added Contacts</div>
+    <div class="panel"><div class="contacts-grid" id="recentContacts"></div></div>
+  </div>
+
+  <!-- CONTACTS -->
+  <div class="tab-panel hidden" id="tab-contacts">
+    <div class="filters-row">
+      <select id="fMarket"><option value="">All Markets</option></select>
+      <select id="fSeniority"><option value="">All Seniority</option></select>
+      <select id="fTier"><option value="">All Tiers</option></select>
+      <select id="fStatus"><option value="">All Status</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+      <button class="btn secondary small" onclick="renderContacts()">Apply</button>
+    </div>
+    <div class="contacts-grid" id="contactsGrid"></div>
+  </div>
+
+  <!-- EVENTS -->
+  <div class="tab-panel hidden" id="tab-events">
+    <div class="panel">
+      <table class="result-table" id="eventsTable">
+        <thead><tr><th>Event Name</th><th>Date</th><th>Attendees</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CHAT QUERY -->
+  <div class="tab-panel hidden" id="tab-query">
+    <div class="chat-wrap">
+      <div class="section-label">Ask in plain language</div>
+      <div class="chat-input-row">
+        <input type="text" id="chatInput" placeholder="e.g. Who attended ABM 2025 and JBP 2025?">
+        <button class="btn" id="chatAskBtn">Ask</button>
+      </div>
+      <div>
+        <span class="suggestion-chip" data-q="Who attended ABM 2025 and JBP 2025?">Attended two events</span>
+        <span class="suggestion-chip" data-q="Show me all managers based in New York">Managers in NY</span>
+        <span class="suggestion-chip" data-q="Who is inactive?">Inactive contacts</span>
+        <span class="suggestion-chip" data-q="Show tier 1 contacts">Tier 1 contacts</span>
+        <span class="suggestion-chip" data-q="Directors in the Fashion & Leather Goods division">Directors, F&LG</span>
+      </div>
+      <div id="chatResults"></div>
+    </div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div class="tab-panel hidden" id="tab-upload">
+    <div class="panel" style="max-width:600px;">
+      <div class="section-label">Upload event attendance (.xlsx / .csv)</div>
+      <p style="color:var(--slate); font-size:12.5px; margin-bottom:16px;">
+        Expected columns: Contact ID, First Name, Last Name, Brand, Event Name, Event Date, Matched
+      </p>
+      <label class="upload-zone" id="uploadZone">
+        <div style="font-size:10px; letter-spacing:1.5px; text-transform:uppercase; font-weight:700; color:var(--slate); margin-bottom:8px;">Select File</div>
+        <div>Click to choose a file, or drag one here</div>
+        <input type="file" id="fileInput" accept=".xlsx,.csv">
+      </label>
+      <div id="uploadPreview"></div>
+    </div>
+  </div>
+
+  <div class="app-footer">
+    <span>STRICTLY CONFIDENTIAL – INTERNAL USE ONLY – DEMO PROTOTYPE</span>
+    <span>Relationship Studio</span>
+  </div>
+</div>
+
+<!-- MODAL: contact profile / edit -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">Contact</h3>
+      <span class="close-x" id="modalClose">✕</span>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+/* ---------------- FAKE SEED DATA ---------------- */
+const BRAND_INFO = [
+  {name:"Acqua di Parma",      division:"Parfums & Cosmetics",      prefix:"ADP",  domain:"acquadiparma.it"},
+  {name:"Guerlain",            division:"Parfums & Cosmetics",      prefix:"GUE",  domain:"guerlain.fr"},
+  {name:"Givenchy Parfums",    division:"Parfums & Cosmetics",      prefix:"GIV",  domain:"givenchybeauty.com"},
+  {name:"Moët & Chandon",      division:"Wines & Spirits",          prefix:"MOET", domain:"moet.com"},
+  {name:"Hennessy",            division:"Wines & Spirits",          prefix:"HEN",  domain:"hennessy.com"},
+  {name:"Veuve Clicquot",      division:"Wines & Spirits",          prefix:"VCP",  domain:"veuveclicquot.com"},
+  {name:"Louis Vuitton",       division:"Fashion & Leather Goods",  prefix:"LV",   domain:"louisvuitton.com"},
+  {name:"Fendi",               division:"Fashion & Leather Goods",  prefix:"FEN",  domain:"fendi.it"},
+  {name:"Celine",              division:"Fashion & Leather Goods",  prefix:"CEL",  domain:"celine.fr"},
+  {name:"Loewe",               division:"Fashion & Leather Goods",  prefix:"LOW",  domain:"loewe.com"},
+  {name:"TAG Heuer",           division:"Watches & Jewelry",        prefix:"TAG",  domain:"tagheuer.com"},
+  {name:"Bulgari",             division:"Watches & Jewelry",        prefix:"BVL",  domain:"bulgari.it"},
+  {name:"Tiffany & Co.",       division:"Watches & Jewelry",        prefix:"TIF",  domain:"tiffany.com"},
+  {name:"Sephora",             division:"Selective Retailing",      prefix:"SEP",  domain:"sephora.com"},
+  {name:"DFS",                 division:"Selective Retailing",      prefix:"DFS",  domain:"dfs.com"},
+];
+const FUNCTIONS = ["Media & Digital","Communications & Events","Retail Excellence","Client Development","E-commerce","Finance & Control","Human Resources"];
+const TITLES = [
+  {text:"Coordinator, Media & Digital", seniority:"Individual Contributor"},
+  {text:"Social Media & Digital Manager", seniority:"Manager+"},
+  {text:"Senior Manager, Client Development", seniority:"Manager+"},
+  {text:"Head of Media & Performance", seniority:"Director+"},
+  {text:"Retail Operations Director", seniority:"Director+"},
+  {text:"Communications Director", seniority:"Director+"},
+  {text:"VP, Global Communications", seniority:"VP+"},
+  {text:"SVP, Retail Excellence", seniority:"VP+"},
+  {text:"E-commerce Manager", seniority:"Manager+"},
+  {text:"HR Business Partner", seniority:"Manager+"},
+  {text:"Finance Manager", seniority:"Manager+"},
+  {text:"Coordinator, Client Development", seniority:"Individual Contributor"},
+];
+const MARKETS = ["Global","Americas","EMEA","APAC","France","Italy","North America","LATAM"];
+const FIRST = ["Elena","Kenji","Amara","Théo","Ingrid","Rafael","Noor","Callum","Simone","Diego","Freya","Tomás","Anaïs","Kwame","Isla","Mateo","Selin","Rowan","Bianca","Hugo"];
+const LAST = ["Voss","Takahashi","Odom","Lindqvist","Bellamy","Suárez","Farouk","MacAllister","Duval","Nakamura","Sørensen","Alvarado","Renard","Osei","Kavanagh","Feroz","Lindgren","Castellano","Marchetti","Beaumont"];
+const EVENTS = [
+  {id:"E1", name:"ABM 2025", date:"2025-03-20"},
+  {id:"E2", name:"ABM 2026", date:"2026-03-19"},
+  {id:"E3", name:"JBP 2025", date:"2025-04-03"},
+  {id:"E4", name:"JBP 2026", date:"2026-03-31"},
+  {id:"E5", name:"MAD 2025", date:"2025-04-30"},
+  {id:"E6", name:"MAD 2026", date:"2026-05-19"},
+];
+
+function seedContacts(){
+  const contacts = [];
+  const idCounters = {};
+  for(let i=0;i<20;i++){
+    const fn = FIRST[i], ln = LAST[i];
+    const brand = BRAND_INFO[i % BRAND_INFO.length];
+    const titleObj = TITLES[i % TITLES.length];
+    idCounters[brand.prefix] = (idCounters[brand.prefix] || 0) + 1;
+    const idNum = String(idCounters[brand.prefix]).padStart(3,"0");
+    contacts.push({
+      id: brand.prefix + "-" + idNum,
+      division: brand.division,
+      brand: brand.name,
+      first: fn,
+      last: ln,
+      function: FUNCTIONS[i % FUNCTIONS.length],
+      title: titleObj.text,
+      email: (fn[0] + "." + ln.toUpperCase() + "@" + brand.domain).toUpperCase(),
+      market: MARKETS[i % MARKETS.length],
+      tier: (i % 4) + 1,
+      seniority: titleObj.seniority,
+      status: i % 6 === 0 ? "Inactive" : "Active",
+    });
+  }
+  return contacts;
+}
+
+function seedAttendance(contacts){
+  const rows = [];
+  contacts.forEach((c, i) => {
+    // give each contact 0-3 events, deterministic-ish
+    const numEvents = (i % 4);
+    for(let j=0;j<numEvents;j++){
+      const ev = EVENTS[(i+j) % EVENTS.length];
+      if(!rows.find(r => r.contactId===c.id && r.eventId===ev.id)){
+        rows.push({contactId:c.id, eventId:ev.id, matched:"Yes"});
+      }
+    }
+  });
+  return rows;
+}
+
+/* ---------------- STATE (localStorage) ---------------- */
+let contacts = JSON.parse(localStorage.getItem("demo_contacts") || "null") || seedContacts();
+let attendance = JSON.parse(localStorage.getItem("demo_attendance") || "null") || seedAttendance(contacts);
+
+function persist(){
+  localStorage.setItem("demo_contacts", JSON.stringify(contacts));
+  localStorage.setItem("demo_attendance", JSON.stringify(attendance));
+}
+persist();
+
+function eventsForContact(cid){
+  return attendance.filter(a => a.contactId === cid).map(a => EVENTS.find(e => e.id === a.eventId)).filter(Boolean);
+}
+function initials(c){ return (c.first[0]+c.last[0]).toUpperCase(); }
+function avatarColor(c){ return AVATAR_COLORS[c.first.charCodeAt(0) % AVATAR_COLORS.length]; }
+
+/* ---------------- NAV ---------------- */
+document.querySelectorAll(".nav-item").forEach(item=>{
+  item.addEventListener("click", ()=>{
+    document.querySelectorAll(".nav-item").forEach(i=>i.classList.remove("active"));
+    item.classList.add("active");
+    const tab = item.dataset.tab;
+    document.querySelectorAll(".tab-panel").forEach(p=>p.classList.add("hidden"));
+    document.getElementById("tab-"+tab).classList.remove("hidden");
+    document.getElementById("pageTitle").textContent = item.textContent.trim().replace(/\d+$/,'').trim();
+    if(tab==="contacts") renderContacts();
+    if(tab==="events") renderEvents();
+    if(tab==="dashboard") renderDashboard();
+  });
+});
+
+/* ---------------- DASHBOARD ---------------- */
+function renderDashboard(){
+  document.getElementById("statTotal").textContent = contacts.length;
+  document.getElementById("statActive").textContent = contacts.filter(c=>c.status==="Active").length;
+  document.getElementById("statEvents").textContent = EVENTS.length;
+  document.getElementById("statAttend").textContent = attendance.length;
+  document.getElementById("navContactsCount").textContent = contacts.length;
+  document.getElementById("navEventsCount").textContent = EVENTS.length;
+
+  const recent = contacts.slice(0,4);
+  document.getElementById("recentContacts").innerHTML = recent.map(cardHTML).join("");
+  attachCardHandlers();
+}
+
+/* ---------------- CONTACTS ---------------- */
+function populateFilters(){
+  const marketSel = document.getElementById("fMarket");
+  const senSel = document.getElementById("fSeniority");
+  const tierSel = document.getElementById("fTier");
+  if(marketSel.options.length<=1){
+    MARKETS.forEach(m=>marketSel.innerHTML += `<option value="${m}">${m}</option>`);
+    ["Individual Contributor","Manager+","Director+","VP+"].forEach(s=>senSel.innerHTML += `<option value="${s}">${s}</option>`);
+    [1,2,3,4].forEach(t=>tierSel.innerHTML += `<option value="${t}">Tier ${t}</option>`);
+  }
+}
+
+function cardHTML(c){
+  const tags = eventsForContact(c.id).map(e=>`<span class="tag">${e.name}</span>`).join("");
+  return `
+  <div class="contact-card" data-id="${c.id}">
+    <div class="card-accent" style="background:${c.status==='Active' ? 'var(--dark-blue)' : 'var(--rust)'}"></div>
+    <div class="contact-card-body">
+      <div class="contact-top">
+        <div class="avatar">${initials(c)}</div>
+        <div>
+          <div class="contact-name">${c.first} ${c.last}</div>
+          <div class="contact-title">${c.title}, ${c.brand}</div>
+        </div>
+      </div>
+      <div class="contact-meta">
+        <span class="meta-chip"><span class="status-dot ${c.status==='Active'?'active':'inactive'}"></span>${c.status}</span>
+        <span class="meta-chip">${c.market}</span>
+        <span class="meta-chip">Tier ${c.tier}</span>
+      </div>
+      <div class="tags-row">${tags || '<span style="color:var(--light-grey); font-size:11px;">No events yet</span>'}</div>
+    </div>
+  </div>`;
+}
+
+function renderContacts(){
+  populateFilters();
+  const mk = document.getElementById("fMarket").value;
+  const sn = document.getElementById("fSeniority").value;
+  const tr = document.getElementById("fTier").value;
+  const st = document.getElementById("fStatus").value;
+  let list = contacts.filter(c =>
+    (!mk || c.market===mk) &&
+    (!sn || c.seniority===sn) &&
+    (!tr || String(c.tier)===tr) &&
+    (!st || c.status===st)
+  );
+  document.getElementById("contactsGrid").innerHTML = list.length ? list.map(cardHTML).join("") : `<div class="empty-state">No contacts match these filters.</div>`;
+  attachCardHandlers();
+}
+
+function attachCardHandlers(){
+  document.querySelectorAll(".contact-card").forEach(card=>{
+    card.addEventListener("click", ()=> openContactModal(card.dataset.id));
+  });
+}
+
+/* ---------------- MODAL ---------------- */
+const modalOverlay = document.getElementById("modalOverlay");
+document.getElementById("modalClose").addEventListener("click", ()=> modalOverlay.classList.remove("open"));
+modalOverlay.addEventListener("click", (e)=>{ if(e.target===modalOverlay) modalOverlay.classList.remove("open"); });
+
+function openContactModal(id){
+  const c = contacts.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById("modalTitle").textContent = c.first + " " + c.last;
+  const tags = eventsForContact(c.id).map(e=>`<span class="tag">${e.name}</span>`).join("") || '<span style="color:var(--slate-light); font-size:12px;">No events recorded</span>';
+  document.getElementById("modalBody").innerHTML = `
+    <div class="form-row"><label>First Name</label><input type="text" id="editFirst" value="${c.first}"></div>
+    <div class="form-row"><label>Last Name</label><input type="text" id="editLast" value="${c.last}"></div>
+    <div class="form-row"><label>Title</label><input type="text" id="editTitle" value="${c.title}"></div>
+    <div class="form-row"><label>Brand</label><input type="text" id="editBrand" value="${c.brand}"></div>
+    <div class="form-row"><label>Email</label><input type="text" id="editEmail" value="${c.email}"></div>
+    <div class="form-row"><label>Market</label>
+      <select id="editMarket">${MARKETS.map(m=>`<option ${m===c.market?'selected':''}>${m}</option>`).join('')}</select>
+    </div>
+    <div class="form-row"><label>Status</label>
+      <select id="editStatus"><option ${c.status==='Active'?'selected':''}>Active</option><option ${c.status==='Inactive'?'selected':''}>Inactive</option></select>
+    </div>
+    <div class="form-row"><label>Events Attended</label><div class="tags-row">${tags}</div></div>
+    <div style="display:flex; gap:8px; margin-top:16px;">
+      <button class="btn small" id="saveContactBtn">Save Changes</button>
+      <button class="btn secondary small" id="cancelContactBtn">Cancel</button>
+    </div>
+  `;
+  modalOverlay.classList.add("open");
+  document.getElementById("saveContactBtn").onclick = ()=>{
+    c.first = document.getElementById("editFirst").value;
+    c.last = document.getElementById("editLast").value;
+    c.title = document.getElementById("editTitle").value;
+    c.brand = document.getElementById("editBrand").value;
+    c.email = document.getElementById("editEmail").value;
+    c.market = document.getElementById("editMarket").value;
+    c.status = document.getElementById("editStatus").value;
+    persist();
+    modalOverlay.classList.remove("open");
+    renderContacts(); renderDashboard();
+  };
+  document.getElementById("cancelContactBtn").onclick = ()=> modalOverlay.classList.remove("open");
+}
+
+document.getElementById("quickAddBtn").addEventListener("click", ()=>{
+  const id = "NEW-" + (200 + contacts.length);
+  const c = {id, division:BRAND_INFO[0].division, brand:BRAND_INFO[0].name, first:"New", last:"Contact", function:FUNCTIONS[0], title:"Coordinator, Media & Digital", email:"NEW.CONTACT@EXAMPLE.COM", market:"Global", tier:4, seniority:"Individual Contributor", status:"Active"};
+  contacts.unshift(c);
+  persist();
+  openContactModal(id);
+  renderDashboard();
+});
+
+/* ---------------- EVENTS ---------------- */
+function renderEvents(){
+  const tbody = document.querySelector("#eventsTable tbody");
+  tbody.innerHTML = EVENTS.map(e=>{
+    const count = attendance.filter(a=>a.eventId===e.id).length;
+    return `<tr><td>${e.name}</td><td>${e.date}</td><td>${count}</td></tr>`;
+  }).join("");
+}
+
+/* ---------------- CHAT QUERY (simple heuristic parser) ---------------- */
+function runQuery(q){
+  const ql = q.toLowerCase();
+  let results = [...contacts];
+  let explain = [];
+
+  // seniority
+  if(ql.includes("manager")){ results = results.filter(c=>c.seniority==="Manager+"); explain.push("seniority = Manager+"); }
+  if(ql.includes("director")){ results = results.filter(c=>c.seniority==="Director+"); explain.push("seniority = Director+"); }
+  if(ql.includes(" vp") || ql.includes("vice president")){ results = results.filter(c=>c.seniority==="VP+"); explain.push("seniority = VP+"); }
+
+  // status
+  if(ql.includes("inactive")){ results = results.filter(c=>c.status==="Inactive"); explain.push("status = Inactive"); }
+  if(ql.includes("active") && !ql.includes("inactive")){ results = results.filter(c=>c.status==="Active"); explain.push("status = Active"); }
+
+  // market
+  MARKETS.forEach(m=>{
+    if(ql.includes(m.toLowerCase())){ results = results.filter(c=>c.market===m); explain.push("market = "+m); }
+  });
+
+  // division
+  const uniqueDivisions = [...new Set(BRAND_INFO.map(b=>b.division))];
+  uniqueDivisions.forEach(d=>{
+    if(ql.includes(d.toLowerCase()) || (d.includes("Leather") && ql.includes("f&lg"))){
+      results = results.filter(c=>c.division===d); explain.push("division = "+d);
+    }
+  });
+
+  // tier
+  const tierMatch = ql.match(/tier\s*(\d)/);
+  if(tierMatch){ results = results.filter(c=>String(c.tier)===tierMatch[1]); explain.push("tier = "+tierMatch[1]); }
+
+  // events mentioned
+  const matchedEvents = EVENTS.filter(e => ql.includes(e.name.toLowerCase()) || ql.includes(e.name.split(" — ")[0].toLowerCase()));
+  if(matchedEvents.length){
+    matchedEvents.forEach(ev=>{
+      const attendedIds = attendance.filter(a=>a.eventId===ev.id).map(a=>a.contactId);
+      results = results.filter(c=>attendedIds.includes(c.id));
+    });
+    explain.push("attended: " + matchedEvents.map(e=>e.name).join(" AND "));
+  }
+
+  return {results, explain};
+}
+
+function renderChatResults(q, results, explain){
+  const box = document.getElementById("chatResults");
+  if(results.length===0){
+    box.innerHTML = `<div class="chat-response"><div class="chat-response-text">No contacts matched "${q}". Try a suggestion chip below, or rephrase — this demo uses simple keyword matching, not a full language model.</div></div>`;
+    return;
+  }
+  const rows = results.map(c=>`
+    <tr>
+      <td>${c.first} ${c.last}</td>
+      <td>${c.title}</td>
+      <td>${c.brand}</td>
+      <td>${c.market}</td>
+      <td>${c.email}</td>
+    </tr>`).join("");
+  box.innerHTML = `
+    <div class="chat-response">
+      <div class="chat-response-text">Found <strong>${results.length}</strong> contact${results.length===1?'':'s'} matching: ${explain.length? explain.join(" · ") : "your query"}.</div>
+      <table class="result-table">
+        <thead><tr><th>Name</th><th>Title</th><th>Brand</th><th>Market</th><th>Email</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-top:12px;"><button class="btn small" id="downloadResultsBtn">⬇ Download as Excel</button></div>
+    </div>
+  `;
+  document.getElementById("downloadResultsBtn").onclick = ()=>{
+    const ws = XLSX.utils.json_to_sheet(results.map(c=>({
+      "First Name":c.first, "Last Name":c.last, "Title":c.title, "Brand":c.brand,
+      "Market":c.market, "Email Address":c.email, "Tier":c.tier, "Seniority Level Tier":c.seniority, "Status":c.status
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Query Results");
+    XLSX.writeFile(wb, "query-results.xlsx");
+  };
+}
+
+document.getElementById("chatAskBtn").addEventListener("click", ()=>{
+  const q = document.getElementById("chatInput").value.trim();
+  if(!q) return;
+  const {results, explain} = runQuery(q);
+  renderChatResults(q, results, explain);
+});
+document.getElementById("chatInput").addEventListener("keydown", (e)=>{
+  if(e.key==="Enter") document.getElementById("chatAskBtn").click();
+});
+document.querySelectorAll(".suggestion-chip").forEach(chip=>{
+  chip.addEventListener("click", ()=>{
+    document.getElementById("chatInput").value = chip.dataset.q;
+    document.getElementById("chatAskBtn").click();
+  });
+});
+
+/* ---------------- UPLOAD ---------------- */
+const uploadZone = document.getElementById("uploadZone");
+const fileInput = document.getElementById("fileInput");
+uploadZone.addEventListener("click", ()=> fileInput.click());
+fileInput.addEventListener("change", handleUpload);
+
+function handleUpload(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt)=>{
+    const data = new Uint8Array(evt.target.result);
+    const wb = XLSX.read(data, {type:"array"});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+    previewUpload(rows);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function previewUpload(rows){
+  let added = 0, matched = 0, unmatched = 0;
+  rows.forEach(r=>{
+    const cid = r["Contact ID"];
+    const evName = r["Event Name"];
+    const contact = contacts.find(c=>c.id===cid);
+    let ev = EVENTS.find(e=>e.name===evName);
+    if(!ev){
+      ev = {id:"E"+(EVENTS.length+1), name: evName || "Unnamed Event", date: r["Event Date"] || ""};
+      EVENTS.push(ev);
+    }
+    if(contact){
+      matched++;
+      if(!attendance.find(a=>a.contactId===cid && a.eventId===ev.id)){
+        attendance.push({contactId:cid, eventId:ev.id, matched:"Yes"});
+        added++;
+      }
+    } else {
+      unmatched++;
+    }
+  });
+  persist();
+  document.getElementById("uploadPreview").innerHTML = `
+    <div class="chat-response" style="margin-top:18px;">
+      <div class="chat-response-text">
+        Processed ${rows.length} row(s): <strong>${added}</strong> new attendance record(s) added,
+        <strong>${matched}</strong> matched by Contact ID, <strong>${unmatched}</strong> unmatched.
+      </div>
+    </div>`;
+  renderDashboard();
+}
+
+/* ---------------- GLOBAL SEARCH ---------------- */
+document.getElementById("globalSearch").addEventListener("input", (e)=>{
+  const term = e.target.value.toLowerCase();
+  if(!term) return;
+  document.querySelector('.nav-item[data-tab="contacts"]').click();
+  document.getElementById("contactsGrid").innerHTML = contacts.filter(c=>
+    (c.first+" "+c.last+" "+c.brand+" "+c.title+" "+c.email).toLowerCase().includes(term)
+  ).map(cardHTML).join("") || `<div class="empty-state">No matches.</div>`;
+  attachCardHandlers();
+});
+
+/* ---------------- INIT ---------------- */
+renderDashboard();
+renderContacts();
+renderEvents();
+</script>
+</body>
+</html>
