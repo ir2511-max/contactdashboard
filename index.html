@@ -275,9 +275,11 @@
 
   /* UPLOAD */
   .upload-zone{
+    display:block; width:100%;
     border:2px dashed #D8D1C2; border-radius:var(--radius);
     padding:40px; text-align:center; color:var(--slate);
-    cursor:pointer; transition:border-color .15s; background:var(--cream);
+    cursor:pointer; transition:border-color .15s, background .15s; background:var(--cream);
+    box-sizing:border-box;
   }
   .upload-zone:hover{border-color:var(--rust);}
   .upload-zone.drag-active{border-color:var(--rust); background:#FBEDE7;}
