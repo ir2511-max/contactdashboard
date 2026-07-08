@@ -238,6 +238,40 @@
     text-transform:uppercase; letter-spacing:.8px;
   }
   table.result-table td{padding:9px 10px; border-bottom:1px solid #F0ECE3; color:var(--navy);}
+  .event-row:hover td{background:var(--cream);}
+
+  /* MULTI-SELECT FILTER WIDGET */
+  .multiselect{position:relative; display:inline-block;}
+  .multiselect-btn{
+    background:var(--white); border:1px solid #E3DED3; border-radius:2px;
+    padding:8px 26px 8px 10px; font-size:13px; color:var(--navy); cursor:pointer;
+    font-family:inherit; min-width:130px; text-align:left; position:relative;
+  }
+  .multiselect-btn:after{content:"▾"; color:var(--slate); font-size:9px; position:absolute; right:10px; top:50%; transform:translateY(-50%);}
+  .multiselect-panel{
+    display:none; position:absolute; top:calc(100% + 4px); left:0; background:var(--white);
+    border:1px solid #E3DED3; border-radius:2px; padding:10px; z-index:30;
+    max-height:240px; overflow-y:auto; min-width:210px; box-shadow:0 6px 16px rgba(2,15,42,0.14);
+  }
+  .multiselect-panel.open{display:block;}
+  .multiselect-actions{font-size:10px; text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px;}
+  .multiselect-actions span{color:var(--rust); cursor:pointer; margin-right:12px; font-weight:700;}
+  .multiselect-panel label{display:flex; gap:7px; align-items:center; font-size:12.5px; padding:4px 0; cursor:pointer; color:var(--navy); white-space:nowrap;}
+
+  /* CONTACT SEARCH-ADD */
+  #inviteSearchResults{
+    position:absolute; top:100%; left:0; right:0; background:var(--white);
+    border:1px solid #E3DED3; border-radius:2px; z-index:25; max-height:220px;
+    overflow-y:auto; display:none; box-shadow:0 6px 16px rgba(2,15,42,0.14);
+  }
+  #inviteSearchResults.open{display:block;}
+  .search-result-item{padding:9px 12px; font-size:12.5px; cursor:pointer; border-bottom:1px solid #F0ECE3;}
+  .search-result-item:hover{background:var(--cream);}
+  .search-result-item:last-child{border-bottom:none;}
+
+  /* INVITE ROW CHECKBOX */
+  .invite-row-check{margin-right:4px; cursor:pointer;}
+  tr.invite-row td{cursor:default;}
 
   /* UPLOAD */
   .upload-zone{
@@ -246,6 +280,7 @@
     cursor:pointer; transition:border-color .15s; background:var(--cream);
   }
   .upload-zone:hover{border-color:var(--rust);}
+  .upload-zone.drag-active{border-color:var(--rust); background:#FBEDE7;}
   .upload-zone input{display:none;}
 
   /* MODAL */
@@ -323,16 +358,34 @@
       <div class="stat-card"><div class="accent-band"></div><div class="stat-card-body"><div class="stat-num" id="statEvents">5</div><div class="stat-label">Tracked Events</div></div></div>
       <div class="stat-card"><div class="accent-band"></div><div class="stat-card-body"><div class="stat-num" id="statAttend">0</div><div class="stat-label">Attendance Records</div></div></div>
     </div>
+
+    <div class="section-label">GitHub Sync</div>
+    <div class="panel" style="margin-bottom:26px;">
+      <div id="syncStatus" style="font-size:13px; color:var(--slate); margin-bottom:12px;">Loading data…</div>
+      <p style="color:var(--slate); font-size:12px; margin-bottom:14px; max-width:620px;">
+        This dashboard reads <code>contacts.xlsx</code> and <code>attendance.xlsx</code> from the repo root when it loads.
+        To publish changes to the whole team: make your edits here or in Excel, click <strong>Export</strong> below, then upload the
+        downloaded file(s) into the GitHub repo (replacing the existing ones) via "Add file → Upload files." Next time anyone opens
+        this page, they'll see the update.
+      </p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn small" id="exportContactsBtn">Export contacts.xlsx</button>
+        <button class="btn small" id="exportAttendanceBtn">Export attendance.xlsx</button>
+        <button class="btn secondary small" id="reloadFromGithubBtn">Reload from GitHub</button>
+      </div>
+    </div>
+
     <div class="section-label">Recently Added Contacts</div>
     <div class="panel"><div class="contacts-grid" id="recentContacts"></div></div>
   </div>
 
   <!-- CONTACTS -->
   <div class="tab-panel hidden" id="tab-contacts">
+    <div id="eventFilterBanner"></div>
     <div class="filters-row">
       <select id="fMarket"><option value="">All Markets</option></select>
+      <select id="fCity"><option value="">All Cities</option></select>
       <select id="fSeniority"><option value="">All Seniority</option></select>
-      <select id="fTier"><option value="">All Tiers</option></select>
       <select id="fStatus"><option value="">All Status</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
       <button class="btn secondary small" onclick="renderContacts()">Apply</button>
     </div>
@@ -361,7 +414,7 @@
         <span class="suggestion-chip" data-q="Who attended ABM 2025 and JBP 2025?">Attended two events</span>
         <span class="suggestion-chip" data-q="Show me all managers based in New York">Managers in NY</span>
         <span class="suggestion-chip" data-q="Who is inactive?">Inactive contacts</span>
-        <span class="suggestion-chip" data-q="Show tier 1 contacts">Tier 1 contacts</span>
+        <span class="suggestion-chip" data-q="Show contacts based in Paris">Contacts in Paris</span>
         <span class="suggestion-chip" data-q="Directors in the Fashion & Leather Goods division">Directors, F&LG</span>
         <span class="suggestion-chip" data-q="Who attended the most events?">Most active</span>
       </div>
@@ -381,31 +434,32 @@
 
   <!-- INVITE LIST BUILDER -->
   <div class="tab-panel hidden" id="tab-invite">
-    <div class="panel" style="max-width:760px;">
+    <div class="panel" style="max-width:840px;">
       <div class="section-label">Build an invite list</div>
-      <div class="filters-row">
-        <select id="invDivision"><option value="">All Divisions</option></select>
-        <select id="invBrand"><option value="">All Brands</option></select>
-        <select id="invMarket"><option value="">All Markets</option></select>
-        <select id="invTier"><option value="">All Tiers</option></select>
-        <select id="invSeniority"><option value="">All Seniority</option></select>
-        <select id="invStatus">
-          <option value="Active">Active only</option>
-          <option value="">Active + Inactive</option>
-        </select>
-      </div>
+      <div class="filters-row" id="inviteMultiSelectRow"></div>
       <div class="filters-row">
         <label style="font-size:12.5px; color:var(--slate); display:flex; align-items:center; gap:8px;">
           Exclude contacts who already attended:
           <select id="invExcludeEvent"><option value="">— none —</option></select>
         </label>
       </div>
-      <div id="inviteCount" style="margin:14px 0; font-size:13px; color:var(--navy); font-weight:600;"></div>
-      <div style="display:flex; gap:8px; margin-bottom:14px;">
+
+      <div style="margin:18px 0 4px;">
+        <label style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--slate); font-weight:700; display:block; margin-bottom:6px;">Add a contact not shown above</label>
+        <div style="position:relative; max-width:380px;">
+          <input type="text" id="inviteSearchInput" placeholder="Search by name, email, or Contact ID…" style="width:100%;" autocomplete="off">
+          <div id="inviteSearchResults"></div>
+        </div>
+      </div>
+
+      <div id="inviteCount" style="margin:16px 0 8px; font-size:13px; color:var(--navy); font-weight:600;"></div>
+      <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
         <button class="btn small" id="inviteDownloadBtn">Download as Excel</button>
         <button class="btn secondary small" id="inviteCopyBtn">Copy Emails to Clipboard</button>
+        <button class="btn secondary small" id="inviteSelectAllBtn">Select All</button>
+        <button class="btn secondary small" id="inviteDeselectAllBtn">Deselect All</button>
       </div>
-      <div id="invitePreview"></div>
+      <div id="invitePreview" style="max-height:440px; overflow-y:auto;"></div>
     </div>
   </div>
 
@@ -497,6 +551,7 @@ const TITLES = [
   {text:"EVP, Global Media", seniority:"C-Suite / EVP"},
 ];
 const MARKETS = ["Global","Americas","EMEA","APAC","France","Italy","North America","LATAM"];
+const CITIES = ["New York","Paris","Milan","London","Miami","Los Angeles","Hong Kong","Tokyo"];
 const FIRST = ["Elena","Kenji","Amara","Théo","Ingrid","Rafael","Noor","Callum","Simone","Diego","Freya","Tomás","Anaïs","Kwame","Isla","Mateo","Selin","Rowan","Bianca","Hugo"];
 const LAST = ["Voss","Takahashi","Odom","Lindqvist","Bellamy","Suárez","Farouk","MacAllister","Duval","Nakamura","Sørensen","Alvarado","Renard","Osei","Kavanagh","Feroz","Lindgren","Castellano","Marchetti","Beaumont"];
 const EVENTS = [
@@ -527,7 +582,7 @@ function seedContacts(){
       title: titleObj.text,
       email: (fn[0] + "." + ln.toUpperCase() + "@" + brand.domain).toUpperCase(),
       market: MARKETS[i % MARKETS.length],
-      tier: (i % 4) + 1,
+      city: CITIES[i % CITIES.length],
       seniority: titleObj.seniority,
       status: i % 6 === 0 ? "Inactive" : "Active",
     });
@@ -550,21 +605,19 @@ function seedAttendance(contacts){
   return rows;
 }
 
-/* ---------------- STATE (localStorage) ---------------- */
-let contacts = JSON.parse(localStorage.getItem("demo_contacts") || "null") || seedContacts();
-let attendance = JSON.parse(localStorage.getItem("demo_attendance") || "null") || seedAttendance(contacts);
+/* ---------------- STATE ---------------- */
+let contacts = [];
+let attendance = [];
 
 function persist(){
   localStorage.setItem("demo_contacts", JSON.stringify(contacts));
   localStorage.setItem("demo_attendance", JSON.stringify(attendance));
 }
-persist();
 
 function eventsForContact(cid){
   return attendance.filter(a => a.contactId === cid).map(a => EVENTS.find(e => e.id === a.eventId)).filter(Boolean);
 }
 function initials(c){ return (c.first[0]+c.last[0]).toUpperCase(); }
-function avatarColor(c){ return AVATAR_COLORS[c.first.charCodeAt(0) % AVATAR_COLORS.length]; }
 
 /* ---------------- NAV ---------------- */
 document.querySelectorAll(".nav-item").forEach(item=>{
@@ -599,12 +652,12 @@ function renderDashboard(){
 /* ---------------- CONTACTS ---------------- */
 function populateFilters(){
   const marketSel = document.getElementById("fMarket");
+  const citySel = document.getElementById("fCity");
   const senSel = document.getElementById("fSeniority");
-  const tierSel = document.getElementById("fTier");
   if(marketSel.options.length<=1){
     MARKETS.forEach(m=>marketSel.innerHTML += `<option value="${m}">${m}</option>`);
+    CITIES.forEach(c=>citySel.innerHTML += `<option value="${c}">${c}</option>`);
     ["Coordinator / Specialist","Manager+","Director+","C-Suite / EVP"].forEach(s=>senSel.innerHTML += `<option value="${s}">${s}</option>`);
-    [1,2,3,4].forEach(t=>tierSel.innerHTML += `<option value="${t}">Tier ${t}</option>`);
   }
 }
 
@@ -624,7 +677,7 @@ function cardHTML(c){
       <div class="contact-meta">
         <span class="meta-chip"><span class="status-dot ${c.status==='Active'?'active':'inactive'}"></span>${c.status}</span>
         <span class="meta-chip">${c.market}</span>
-        <span class="meta-chip">Tier ${c.tier}</span>
+        <span class="meta-chip">${c.city}</span>
         <span class="meta-chip">${c.seniority}</span>
       </div>
       <div class="tags-row">${tags || '<span style="color:var(--light-grey); font-size:11px;">No events yet</span>'}</div>
@@ -632,18 +685,36 @@ function cardHTML(c){
   </div>`;
 }
 
+let activeEventFilter = null; // {id, name} when viewing "attendees of X"
+
 function renderContacts(){
   populateFilters();
+  const banner = document.getElementById("eventFilterBanner");
+  if(activeEventFilter){
+    banner.innerHTML = `
+      <div class="chat-response" style="border-top-color:var(--dark-blue); margin-bottom:16px;">
+        <div class="chat-response-text">Showing attendees of <strong>${activeEventFilter.name}</strong>.
+        <span id="clearEventFilterBtn" style="color:var(--rust); cursor:pointer; font-weight:700; margin-left:8px;">Clear ✕</span></div>
+      </div>`;
+    document.getElementById("clearEventFilterBtn").onclick = ()=>{ activeEventFilter = null; renderContacts(); };
+  } else {
+    banner.innerHTML = "";
+  }
+
   const mk = document.getElementById("fMarket").value;
+  const ct = document.getElementById("fCity").value;
   const sn = document.getElementById("fSeniority").value;
-  const tr = document.getElementById("fTier").value;
   const st = document.getElementById("fStatus").value;
   let list = contacts.filter(c =>
     (!mk || c.market===mk) &&
+    (!ct || c.city===ct) &&
     (!sn || c.seniority===sn) &&
-    (!tr || String(c.tier)===tr) &&
     (!st || c.status===st)
   );
+  if(activeEventFilter){
+    const attendedIds = attendance.filter(a=>a.eventId===activeEventFilter.id).map(a=>a.contactId);
+    list = list.filter(c=>attendedIds.includes(c.id));
+  }
   document.getElementById("contactsGrid").innerHTML = list.length ? list.map(cardHTML).join("") : `<div class="empty-state">No contacts match these filters.</div>`;
   attachCardHandlers();
 }
@@ -673,8 +744,8 @@ function openContactModal(id){
     <div class="form-row"><label>Market</label>
       <select id="editMarket">${MARKETS.map(m=>`<option ${m===c.market?'selected':''}>${m}</option>`).join('')}</select>
     </div>
-    <div class="form-row"><label>Tier</label>
-      <select id="editTier">${[1,2,3,4].map(t=>`<option value="${t}" ${t===c.tier?'selected':''}>Tier ${t}</option>`).join('')}</select>
+    <div class="form-row"><label>City</label>
+      <select id="editCity">${CITIES.map(ct=>`<option ${ct===c.city?'selected':''}>${ct}</option>`).join('')}</select>
     </div>
     <div class="form-row"><label>Seniority Level Tier</label>
       <select id="editSeniority">${["Coordinator / Specialist","Manager+","Director+","C-Suite / EVP"].map(s=>`<option ${s===c.seniority?'selected':''}>${s}</option>`).join('')}</select>
@@ -696,7 +767,7 @@ function openContactModal(id){
     c.brand = document.getElementById("editBrand").value;
     c.email = document.getElementById("editEmail").value;
     c.market = document.getElementById("editMarket").value;
-    c.tier = parseInt(document.getElementById("editTier").value, 10);
+    c.city = document.getElementById("editCity").value;
     c.seniority = document.getElementById("editSeniority").value;
     c.status = document.getElementById("editStatus").value;
     persist();
@@ -708,7 +779,7 @@ function openContactModal(id){
 
 document.getElementById("quickAddBtn").addEventListener("click", ()=>{
   const id = "NEW-" + (200 + contacts.length);
-  const c = {id, division:BRAND_INFO[0].division, brand:BRAND_INFO[0].name, first:"New", last:"Contact", function:FUNCTIONS[0], title:"Coordinator, Media & Digital", email:"NEW.CONTACT@EXAMPLE.COM", market:"Global", tier:4, seniority:"Coordinator / Specialist", status:"Active"};
+  const c = {id, division:BRAND_INFO[0].division, brand:BRAND_INFO[0].name, first:"New", last:"Contact", function:FUNCTIONS[0], title:"Coordinator, Media & Digital", email:"NEW.CONTACT@EXAMPLE.COM", market:"Global", city:CITIES[0], seniority:"Coordinator / Specialist", status:"Active"};
   contacts.unshift(c);
   persist();
   openContactModal(id);
@@ -720,8 +791,20 @@ function renderEvents(){
   const tbody = document.querySelector("#eventsTable tbody");
   tbody.innerHTML = EVENTS.map(e=>{
     const count = attendance.filter(a=>a.eventId===e.id).length;
-    return `<tr><td>${e.name}</td><td>${e.date}</td><td>${count}</td></tr>`;
+    return `<tr class="event-row" data-event-id="${e.id}" style="cursor:pointer;"><td>${e.name}</td><td>${e.date}</td><td>${count}</td></tr>`;
   }).join("");
+  document.querySelectorAll(".event-row").forEach(row=>{
+    row.addEventListener("click", ()=>{
+      const ev = EVENTS.find(e=>e.id===row.dataset.eventId);
+      activeEventFilter = ev;
+      document.querySelectorAll(".nav-item").forEach(i=>i.classList.remove("active"));
+      document.querySelector('.nav-item[data-tab="contacts"]').classList.add("active");
+      document.querySelectorAll(".tab-panel").forEach(p=>p.classList.add("hidden"));
+      document.getElementById("tab-contacts").classList.remove("hidden");
+      document.getElementById("pageTitle").textContent = "Contacts";
+      renderContacts();
+    });
+  });
 }
 
 /* ---------------- CHAT QUERY (simple heuristic parser) ---------------- */
@@ -751,6 +834,11 @@ function runQuery(q){
     if(ql.includes(m.toLowerCase())){ results = results.filter(c=>c.market===m); explain.push("market = "+m); matchedSomething = true; }
   });
 
+  // city
+  CITIES.forEach(ct=>{
+    if(ql.includes(ct.toLowerCase())){ results = results.filter(c=>c.city===ct); explain.push("city = "+ct); matchedSomething = true; }
+  });
+
   // division
   const uniqueDivisions = [...new Set(BRAND_INFO.map(b=>b.division))];
   uniqueDivisions.forEach(d=>{
@@ -758,10 +846,6 @@ function runQuery(q){
       results = results.filter(c=>c.division===d); explain.push("division = "+d); matchedSomething = true;
     }
   });
-
-  // tier
-  const tierMatch = ql.match(/tier\s*(\d)/);
-  if(tierMatch){ results = results.filter(c=>String(c.tier)===tierMatch[1]); explain.push("tier = "+tierMatch[1]); matchedSomething = true; }
 
   // events mentioned by name
   const matchedEvents = EVENTS.filter(e => ql.includes(e.name.toLowerCase()) || ql.includes(e.name.split(" — ")[0].toLowerCase()));
@@ -804,7 +888,7 @@ function runQuery(q){
 function renderChatResults(q, results, explain, noMatch){
   const box = document.getElementById("chatResults");
   if(noMatch){
-    box.innerHTML = `<div class="chat-response"><div class="chat-response-text">I couldn't match "${q}" to a filter this demo understands. Try a suggestion chip below, or rephrase using terms like manager/director, a market name, a tier number, an event name, or "attended N events" / "most events" — this demo uses simple keyword matching, not a full language model, so open-ended phrasing may not resolve.</div></div>`;
+    box.innerHTML = `<div class="chat-response"><div class="chat-response-text">I couldn't match "${q}" to a filter this demo understands. Try a suggestion chip below, or rephrase using terms like manager/director, a market or city name, an event name, or "attended N events" / "most events" — this demo uses simple keyword matching, not a full language model, so open-ended phrasing may not resolve.</div></div>`;
     return;
   }
   if(results.length===0){
@@ -834,7 +918,7 @@ function renderChatResults(q, results, explain, noMatch){
   document.getElementById("downloadResultsBtn").onclick = ()=>{
     const ws = XLSX.utils.json_to_sheet(results.map(c=>({
       "First Name":c.first, "Last Name":c.last, "Title":c.title, "Brand":c.brand,
-      "Market":c.market, "Email Address":c.email, "Tier":c.tier, "Seniority Level Tier":c.seniority, "Status":c.status,
+      "Market":c.market, "City":c.city, "Email Address":c.email, "Seniority Level Tier":c.seniority, "Status":c.status,
       "Events Attended": eventsForContact(c.id).length
     })));
     const wb = XLSX.utils.book_new();
@@ -864,6 +948,28 @@ const uploadZone = document.getElementById("uploadZone");
 const fileInput = document.getElementById("fileInput");
 uploadZone.addEventListener("click", ()=> fileInput.click());
 fileInput.addEventListener("change", handleUpload);
+
+["dragenter","dragover"].forEach(evt=>{
+  uploadZone.addEventListener(evt, (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    uploadZone.classList.add("drag-active");
+  });
+});
+["dragleave","dragend"].forEach(evt=>{
+  uploadZone.addEventListener(evt, (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    uploadZone.classList.remove("drag-active");
+  });
+});
+uploadZone.addEventListener("drop", (e)=>{
+  e.preventDefault(); e.stopPropagation();
+  uploadZone.classList.remove("drag-active");
+  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+  if(file){
+    fileInput.files = e.dataTransfer.files;
+    handleUpload({target:{files:[file]}});
+  }
+});
 
 function handleUpload(e){
   const file = e.target.files[0];
@@ -913,7 +1019,7 @@ function previewUpload(rows){
 
 /* ---------------- QUICK EDIT (confirm-gated single-field update) ---------------- */
 const EDITABLE_FIELDS = {
-  "title":"title", "status":"status", "tier":"tier", "market":"market",
+  "title":"title", "status":"status", "market":"market", "city":"city",
   "seniority":"seniority", "division":"division", "brand":"brand",
   "first name":"first", "last name":"last", "email":"email", "function":"function"
 };
@@ -924,7 +1030,7 @@ function findContactByIdOrEmail(token){
 document.getElementById("editCmdBtn").addEventListener("click", ()=>{
   const raw = document.getElementById("editCmdInput").value.trim();
   const box = document.getElementById("editCmdPreview");
-  const m = raw.match(/^update\s+(\S+)\s+(title|status|tier|market|seniority|division|brand|first name|last name|email|function)\s+to\s+(.+)$/i);
+  const m = raw.match(/^update\s+(\S+)\s+(title|status|market|city|seniority|division|brand|first name|last name|email|function)\s+to\s+(.+)$/i);
   if(!m){
     box.innerHTML = `<div class="chat-response"><div class="chat-response-text">Couldn't parse that. Use the exact format: <em>update [Contact ID or email] [field] to [new value]</em>.</div></div>`;
     return;
@@ -949,7 +1055,7 @@ document.getElementById("editCmdBtn").addEventListener("click", ()=>{
       </div>
     </div>`;
   document.getElementById("applyEditBtn").onclick = ()=>{
-    contact[field] = (field==="tier") ? parseInt(newValue.trim(),10) : newValue.trim();
+    contact[field] = newValue.trim();
     persist();
     box.innerHTML = `<div class="chat-response"><div class="chat-response-text">Updated <strong>${contact.first} ${contact.last}</strong>'s ${fieldRaw} to "${newValue.trim()}".</div></div>`;
     renderContacts(); renderDashboard();
@@ -958,68 +1064,195 @@ document.getElementById("editCmdBtn").addEventListener("click", ()=>{
 });
 
 /* ---------------- INVITE LIST BUILDER ---------------- */
+let inviteSelections = null; // built once in populateInviteFilters
+let inviteOverrides = new Map(); // contactId -> true (force include) / false (force exclude)
+let inviteFiltersBuilt = false;
+
+function createMultiSelect(containerEl, label, options, selectionSet){
+  const wrap = document.createElement("div");
+  wrap.className = "multiselect";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "multiselect-btn";
+  const panel = document.createElement("div");
+  panel.className = "multiselect-panel";
+  const actions = document.createElement("div");
+  actions.className = "multiselect-actions";
+  actions.innerHTML = `<span data-act="all">Select All</span><span data-act="none">Clear</span>`;
+  panel.appendChild(actions);
+
+  function refreshLabel(){
+    if(selectionSet.size===0){ btn.textContent = "No " + label + " ▾"; }
+    else if(selectionSet.size===options.length){ btn.textContent = "All " + label; }
+    else if(selectionSet.size===1){ btn.textContent = [...selectionSet][0]; }
+    else { btn.textContent = selectionSet.size + " " + label + " selected"; }
+  }
+
+  options.forEach(opt=>{
+    const lbl = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = opt;
+    cb.checked = selectionSet.has(opt);
+    cb.addEventListener("change", ()=>{
+      if(cb.checked) selectionSet.add(opt); else selectionSet.delete(opt);
+      refreshLabel();
+      updateInviteList();
+    });
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(" " + opt));
+    panel.appendChild(lbl);
+  });
+
+  actions.querySelector('[data-act="all"]').addEventListener("click", ()=>{
+    options.forEach(o=>selectionSet.add(o));
+    panel.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.checked=true);
+    refreshLabel(); updateInviteList();
+  });
+  actions.querySelector('[data-act="none"]').addEventListener("click", ()=>{
+    selectionSet.clear();
+    panel.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.checked=false);
+    refreshLabel(); updateInviteList();
+  });
+  btn.addEventListener("click", (e)=>{
+    e.stopPropagation();
+    document.querySelectorAll(".multiselect-panel.open").forEach(p=>{ if(p!==panel) p.classList.remove("open"); });
+    panel.classList.toggle("open");
+  });
+
+  wrap.appendChild(btn);
+  wrap.appendChild(panel);
+  containerEl.appendChild(wrap);
+  refreshLabel();
+}
+
+document.addEventListener("click", ()=>{
+  document.querySelectorAll(".multiselect-panel.open").forEach(p=>p.classList.remove("open"));
+  document.getElementById("inviteSearchResults") && document.getElementById("inviteSearchResults").classList.remove("open");
+});
+
 function populateInviteFilters(){
-  const divSel = document.getElementById("invDivision");
-  const brandSel = document.getElementById("invBrand");
-  const marketSel = document.getElementById("invMarket");
-  const tierSel = document.getElementById("invTier");
-  const senSel = document.getElementById("invSeniority");
   const evSel = document.getElementById("invExcludeEvent");
-  if(divSel.options.length > 1) return; // already populated
+  if(inviteFiltersBuilt) return;
+  inviteFiltersBuilt = true;
+
   const uniqueDivisions = [...new Set(BRAND_INFO.map(b=>b.division))];
-  uniqueDivisions.forEach(d=>divSel.innerHTML += `<option value="${d}">${d}</option>`);
-  BRAND_INFO.forEach(b=>brandSel.innerHTML += `<option value="${b.name}">${b.name}</option>`);
-  MARKETS.forEach(m=>marketSel.innerHTML += `<option value="${m}">${m}</option>`);
-  [1,2,3,4].forEach(t=>tierSel.innerHTML += `<option value="${t}">Tier ${t}</option>`);
-  ["Coordinator / Specialist","Manager+","Director+","C-Suite / EVP"].forEach(s=>senSel.innerHTML += `<option value="${s}">${s}</option>`);
+  const brandNames = BRAND_INFO.map(b=>b.name);
+  const seniorityTiers = ["Coordinator / Specialist","Manager+","Director+","C-Suite / EVP"];
+
+  inviteSelections = {
+    division: new Set(uniqueDivisions),
+    brand: new Set(brandNames),
+    market: new Set(MARKETS),
+    city: new Set(CITIES),
+    seniority: new Set(seniorityTiers),
+    status: new Set(["Active"]), // default to active-only, matching typical invite use
+  };
+
+  const row = document.getElementById("inviteMultiSelectRow");
+  row.innerHTML = "";
+  createMultiSelect(row, "Divisions", uniqueDivisions, inviteSelections.division);
+  createMultiSelect(row, "Brands", brandNames, inviteSelections.brand);
+  createMultiSelect(row, "Markets", MARKETS, inviteSelections.market);
+  createMultiSelect(row, "Cities", CITIES, inviteSelections.city);
+  createMultiSelect(row, "Seniority", seniorityTiers, inviteSelections.seniority);
+  createMultiSelect(row, "Status", ["Active","Inactive"], inviteSelections.status);
+
   EVENTS.forEach(e=>evSel.innerHTML += `<option value="${e.id}">${e.name}</option>`);
-  [divSel,brandSel,marketSel,tierSel,senSel,evSel].forEach(sel=>sel.addEventListener("change", updateInviteList));
-  document.getElementById("invStatus").addEventListener("change", updateInviteList);
+  evSel.addEventListener("change", updateInviteList);
+}
+
+function getFilteredBase(){
+  return contacts.filter(c =>
+    inviteSelections.division.has(c.division) &&
+    inviteSelections.brand.has(c.brand) &&
+    inviteSelections.market.has(c.market) &&
+    inviteSelections.city.has(c.city) &&
+    inviteSelections.seniority.has(c.seniority) &&
+    inviteSelections.status.has(c.status)
+  );
 }
 
 function getInviteList(){
-  const div = document.getElementById("invDivision").value;
-  const brand = document.getElementById("invBrand").value;
-  const market = document.getElementById("invMarket").value;
-  const tier = document.getElementById("invTier").value;
-  const sen = document.getElementById("invSeniority").value;
-  const status = document.getElementById("invStatus").value;
+  let base = getFilteredBase();
   const excludeEventId = document.getElementById("invExcludeEvent").value;
-
-  let list = contacts.filter(c =>
-    (!div || c.division===div) &&
-    (!brand || c.brand===brand) &&
-    (!market || c.market===market) &&
-    (!tier || String(c.tier)===tier) &&
-    (!sen || c.seniority===sen) &&
-    (!status || c.status===status)
-  );
   if(excludeEventId){
     const alreadyIds = attendance.filter(a=>a.eventId===excludeEventId).map(a=>a.contactId);
-    list = list.filter(c => !alreadyIds.includes(c.id));
+    base = base.filter(c => !alreadyIds.includes(c.id));
   }
-  return list;
+  const filterMatchIds = new Set(base.map(c=>c.id));
+  const manualAddIds = [...inviteOverrides.entries()].filter(([id,val])=>val===true).map(([id])=>id);
+  const candidateIds = new Set([...filterMatchIds, ...manualAddIds]);
+
+  return contacts.filter(c=>{
+    if(!candidateIds.has(c.id)) return false;
+    if(inviteOverrides.has(c.id)) return inviteOverrides.get(c.id);
+    return filterMatchIds.has(c.id);
+  });
 }
 
 function updateInviteList(){
   const list = getInviteList();
-  document.getElementById("inviteCount").textContent = list.length + " contact" + (list.length===1?"":"s") + " match this invite list";
-  const preview = list.slice(0, 8);
-  const rows = preview.map(c=>`
-    <tr><td>${c.first} ${c.last}</td><td>${c.title}</td><td>${c.brand}</td><td>${c.email}</td></tr>`).join("");
+  document.getElementById("inviteCount").textContent = list.length + " contact" + (list.length===1?"":"s") + " selected for this invite list";
+  const rows = list.map(c=>`
+    <tr class="invite-row" data-id="${c.id}">
+      <td><input type="checkbox" class="invite-row-check" checked data-id="${c.id}"></td>
+      <td>${c.first} ${c.last}</td><td>${c.title}</td><td>${c.brand}</td><td>${c.city}</td><td>${c.email}</td>
+    </tr>`).join("");
   document.getElementById("invitePreview").innerHTML = list.length ? `
     <table class="result-table">
-      <thead><tr><th>Name</th><th>Title</th><th>Brand</th><th>Email</th></tr></thead>
+      <thead><tr><th></th><th>Name</th><th>Title</th><th>Brand</th><th>City</th><th>Email</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    ${list.length > 8 ? `<div style="font-size:11.5px; color:var(--slate); margin-top:8px;">+ ${list.length-8} more — full list included in the download.</div>` : ''}
-  ` : `<div class="empty-state">No contacts match these filters.</div>`;
+  ` : `<div class="empty-state">No contacts selected. Adjust the filters above or search to add someone directly.</div>`;
+
+  document.querySelectorAll(".invite-row-check").forEach(cb=>{
+    cb.addEventListener("change", ()=>{
+      inviteOverrides.set(cb.dataset.id, cb.checked);
+      updateInviteList();
+    });
+  });
 }
+
+document.getElementById("inviteSelectAllBtn").addEventListener("click", ()=>{
+  getInviteList().forEach(c=>inviteOverrides.set(c.id, true));
+  updateInviteList();
+});
+document.getElementById("inviteDeselectAllBtn").addEventListener("click", ()=>{
+  getInviteList().forEach(c=>inviteOverrides.set(c.id, false));
+  updateInviteList();
+});
+
+document.getElementById("inviteSearchInput").addEventListener("input", (e)=>{
+  const term = e.target.value.trim().toLowerCase();
+  const box = document.getElementById("inviteSearchResults");
+  if(!term){ box.classList.remove("open"); box.innerHTML=""; return; }
+  const matches = contacts.filter(c =>
+    (c.first+" "+c.last+" "+c.email+" "+c.id).toLowerCase().includes(term)
+  ).slice(0, 8);
+  box.innerHTML = matches.length ? matches.map(c=>`
+    <div class="search-result-item" data-id="${c.id}">
+      <strong>${c.first} ${c.last}</strong> — ${c.title}, ${c.brand}<br>
+      <span style="color:var(--slate);">${c.email}</span>
+    </div>`).join("") : `<div class="search-result-item" style="color:var(--slate);">No matches</div>`;
+  box.classList.add("open");
+  box.querySelectorAll(".search-result-item[data-id]").forEach(item=>{
+    item.addEventListener("click", (ev)=>{
+      ev.stopPropagation();
+      inviteOverrides.set(item.dataset.id, true);
+      document.getElementById("inviteSearchInput").value = "";
+      box.classList.remove("open"); box.innerHTML = "";
+      updateInviteList();
+    });
+  });
+});
+document.getElementById("inviteSearchInput").addEventListener("click", (e)=> e.stopPropagation());
+document.getElementById("inviteSearchResults").addEventListener("click", (e)=> e.stopPropagation());
 
 document.getElementById("inviteDownloadBtn").addEventListener("click", ()=>{
   const list = getInviteList();
   const ws = XLSX.utils.json_to_sheet(list.map(c=>({
-    "First Name":c.first, "Last Name":c.last, "Email Address":c.email, "Title":c.title, "Brand":c.brand, "Market":c.market
+    "First Name":c.first, "Last Name":c.last, "Email Address":c.email, "Title":c.title, "Brand":c.brand, "Market":c.market, "City":c.city
   })));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Invite List");
@@ -1052,8 +1285,7 @@ const CONTACT_HEADER_MAP = {
   "title":"title",
   "email address":"email",
   "market":"market",
-  "tiers":"tier",
-  "tier":"tier",
+  "city":"city",
   "seniority level tier":"seniority",
   "active/inactive":"status",
   "status":"status",
@@ -1062,6 +1294,28 @@ const contactsUploadZone = document.getElementById("contactsUploadZone");
 const contactsFileInput = document.getElementById("contactsFileInput");
 contactsUploadZone.addEventListener("click", ()=> contactsFileInput.click());
 contactsFileInput.addEventListener("change", handleContactsUpload);
+
+["dragenter","dragover"].forEach(evt=>{
+  contactsUploadZone.addEventListener(evt, (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    contactsUploadZone.classList.add("drag-active");
+  });
+});
+["dragleave","dragend"].forEach(evt=>{
+  contactsUploadZone.addEventListener(evt, (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    contactsUploadZone.classList.remove("drag-active");
+  });
+});
+contactsUploadZone.addEventListener("drop", (e)=>{
+  e.preventDefault(); e.stopPropagation();
+  contactsUploadZone.classList.remove("drag-active");
+  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+  if(file){
+    contactsFileInput.files = e.dataTransfer.files;
+    handleContactsUpload({target:{files:[file]}});
+  }
+});
 
 function handleContactsUpload(e){
   const file = e.target.files[0];
@@ -1101,7 +1355,7 @@ function previewContactsUpload(rows){
       if(norm.title) existing.title = String(norm.title).trim();
       if(norm.email) existing.email = String(norm.email).trim();
       if(norm.market) existing.market = String(norm.market).trim();
-      if(norm.tier !== undefined && String(norm.tier).trim() !== "") existing.tier = parseInt(norm.tier, 10);
+      if(norm.city) existing.city = String(norm.city).trim();
       if(norm.seniority) existing.seniority = String(norm.seniority).trim();
       if(statusVal) existing.status = statusVal;
       updated++;
@@ -1116,7 +1370,7 @@ function previewContactsUpload(rows){
         title: norm.title ? String(norm.title).trim() : "",
         email: norm.email ? String(norm.email).trim() : "",
         market: norm.market ? String(norm.market).trim() : "",
-        tier: (norm.tier !== undefined && String(norm.tier).trim() !== "") ? parseInt(norm.tier, 10) : 4,
+        city: norm.city ? String(norm.city).trim() : "",
         seniority: norm.seniority ? String(norm.seniority).trim() : "Coordinator / Specialist",
         status: statusVal || "Active",
       });
@@ -1146,10 +1400,136 @@ document.getElementById("globalSearch").addEventListener("input", (e)=>{
   attachCardHandlers();
 });
 
+/* ---------------- LOAD FROM REPO FILES (contacts.xlsx / attendance.xlsx) ---------------- */
+async function fetchExcelRows(url){
+  try{
+    const res = await fetch(url, {cache:"no-store"});
+    if(!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    const wb = XLSX.read(new Uint8Array(buf), {type:"array"});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+    return rows.length ? rows : null;
+  } catch(e){
+    return null;
+  }
+}
+
+function buildContactsFromRows(rows){
+  const out = [];
+  rows.forEach(row=>{
+    const norm = {};
+    Object.keys(row).forEach(key=>{
+      const nk = key.trim().toLowerCase().replace(/\s+/g," ");
+      if(CONTACT_HEADER_MAP[nk]) norm[CONTACT_HEADER_MAP[nk]] = row[key];
+    });
+    const id = norm.id ? String(norm.id).trim() : "";
+    if(!id) return;
+    let statusVal = norm.status ? String(norm.status).trim() : "Active";
+    statusVal = /inactive/i.test(statusVal) ? "Inactive" : "Active";
+    out.push({
+      id: id,
+      division: norm.division ? String(norm.division).trim() : "",
+      brand: norm.brand ? String(norm.brand).trim() : "",
+      first: norm.first ? String(norm.first).trim() : "",
+      last: norm.last ? String(norm.last).trim() : "",
+      function: norm.function ? String(norm.function).trim() : "",
+      title: norm.title ? String(norm.title).trim() : "",
+      email: norm.email ? String(norm.email).trim() : "",
+      market: norm.market ? String(norm.market).trim() : "",
+      city: norm.city ? String(norm.city).trim() : "",
+      seniority: norm.seniority ? String(norm.seniority).trim() : "Coordinator / Specialist",
+      status: statusVal,
+    });
+  });
+  return out;
+}
+
+function buildAttendanceFromRows(rows, contactsList){
+  const att = [];
+  rows.forEach(r=>{
+    const cid = r["Contact ID"] ? String(r["Contact ID"]).trim() : "";
+    const evName = r["Event Name"];
+    if(!cid || !evName) return;
+    const contact = contactsList.find(c=>c.id.toLowerCase()===cid.toLowerCase());
+    let ev = EVENTS.find(e=>e.name===evName);
+    if(!ev){
+      ev = {id:"E"+(EVENTS.length+1), name: evName, date: r["Event Date"] || ""};
+      EVENTS.push(ev);
+    }
+    if(contact && !att.find(a=>a.contactId===contact.id && a.eventId===ev.id)){
+      att.push({contactId:contact.id, eventId:ev.id, matched:"Yes"});
+    }
+  });
+  return att;
+}
+
+async function initializeData(){
+  const statusEl = document.getElementById("syncStatus");
+  const contactRows = await fetchExcelRows("./contacts.xlsx");
+  const attendanceRows = await fetchExcelRows("./attendance.xlsx");
+
+  if(contactRows){
+    contacts = buildContactsFromRows(contactRows);
+    attendance = attendanceRows ? buildAttendanceFromRows(attendanceRows, contacts) : [];
+    statusEl.textContent = "Loaded from contacts.xlsx" + (attendanceRows ? " and attendance.xlsx" : " (no attendance.xlsx found)") + " in the repo.";
+  } else {
+    contacts = seedContacts();
+    attendance = seedAttendance(contacts);
+    statusEl.textContent = "No contacts.xlsx found in the repo — showing sample demo data. Export and upload real files to replace it.";
+  }
+  persist();
+  renderDashboard();
+  renderContacts();
+  renderEvents();
+}
+
+document.getElementById("exportContactsBtn").addEventListener("click", ()=>{
+  const ws = XLSX.utils.json_to_sheet(contacts.map(c=>({
+    "Division of Business": c.division, "Brand": c.brand, "Contact ID": c.id,
+    "First Name": c.first, "Last Name": c.last, "Function": c.function, "Title": c.title,
+    "Email Address": c.email, "Market": c.market, "City": c.city,
+    "Seniority Level Tier": c.seniority, "Active/Inactive": c.status
+  })));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Contacts");
+  XLSX.writeFile(wb, "contacts.xlsx");
+});
+
+document.getElementById("exportAttendanceBtn").addEventListener("click", ()=>{
+  const rows = attendance.map(a=>{
+    const c = contacts.find(x=>x.id===a.contactId);
+    const ev = EVENTS.find(e=>e.id===a.eventId);
+    return {
+      "Contact ID": a.contactId,
+      "First Name": c ? c.first : "",
+      "Last Name": c ? c.last : "",
+      "Brand": c ? c.brand : "",
+      "Event Name": ev ? ev.name : "",
+      "Event Date": ev ? ev.date : "",
+      "Matched": a.matched || "Yes"
+    };
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+  XLSX.writeFile(wb, "attendance.xlsx");
+});
+
+document.getElementById("reloadFromGithubBtn").addEventListener("click", ()=>{
+  if(!confirm("This discards any local unsaved edits in this browser and reloads contacts.xlsx / attendance.xlsx from the repo. Continue?")) return;
+  localStorage.removeItem("demo_contacts");
+  localStorage.removeItem("demo_attendance");
+  initializeData();
+});
+
 /* ---------------- INIT ---------------- */
-renderDashboard();
-renderContacts();
-renderEvents();
+["dragover","drop"].forEach(evt=>{
+  window.addEventListener(evt, (e)=>{
+    if(!e.target.closest(".upload-zone")) e.preventDefault();
+  });
+});
+initializeData();
 </script>
 </body>
 </html>
